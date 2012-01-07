@@ -1,0 +1,95 @@
+diff -ru jspdf.orig/examples/basic.htm jspdf/examples/basic.htm
+--- jspdf.orig/examples/basic.htm	2010-05-24 16:33:03.000000000 +0300
++++ jspdf/examples/basic.htm	2010-05-24 16:43:53.000000000 +0300
+@@ -163,7 +163,9 @@
+ 
+ 	var doc = new jsPDF();
+ 	doc.setFontSize(22);	
++	doc.setRGBColor(1, 0.2, 0.2);
+ 	doc.text(20, 20, 'Questions');
++	doc.setGrayColor(0);
+ 	doc.setFontSize(16);
+ 	doc.text(20, 30, 'This belongs to: ' + name);
+ 	
+@@ -173,7 +175,9 @@
+ 	
+ 	doc.addPage();
+ 	doc.setFontSize(22);
++	doc.setRGBColor(1, 0.5, 0.5);
+ 	doc.text(20, 20, 'Answers');
++	doc.setGrayColor(0);
+ 	doc.setFontSize(16);
+ 	
+ 	for(var i = 1; i <= 12; i ++) {
+@@ -198,4 +202,4 @@
+ pageTracker._trackPageview();
+ } catch(err) {}</script>
+ </body>
+-</html>
+\ No newline at end of file
++</html>
+diff -ru jspdf.orig/jspdf.js jspdf/jspdf.js
+--- jspdf.orig/jspdf.js	2010-05-24 16:33:03.000000000 +0300
++++ jspdf/jspdf.js	2010-05-24 16:39:36.000000000 +0300
+@@ -35,6 +35,10 @@
+ 	var documentProperties = {};
+ 	var fontSize = 16; // Default font size
+ 	var pageFontSize = 16;
++	var fontColorSpace = 'g'; //default use gray colorset
++	var pageFontColorSpace = 'g';
++	var fontColor = '0'; //default black color
++	var pageFontColor = '0';
+ 
+ 	// Initilisation 
+ 	if (unit == 'pt') {
+@@ -277,6 +281,14 @@
+ 				out('BT /F1 ' + parseInt(fontSize) + '.00 Tf ET');
+ 				pageFontSize = fontSize;
+ 			}
++			if (
++				(fontColorSpace != pageFontColorSpace) ||
++				(fontColor != pageFontColor)
++			) {
++				out('q ' + fontColor + " " + fontColorSpace);
++				pageFontColorSpace = fontColorSpace;
++				pageFontColor = fontColor;
++			}
+ 			var str = sprintf('BT %.2f %.2f Td (%s) Tj ET', x * k, (pageHeight - y) * k, pdfEscape(text));
+ 			out(str);
+ 		},
+@@ -298,7 +310,33 @@
+ 		},
+ 		setFontSize: function(size) {
+ 			fontSize = size;
++		},
++		setGrayColor: function(value) { //must be between 0..1
++			if (value > 1)
++				value = 1;
++			if (value < 0)
++				value = 0;
++
++			fontColorSpace = 'g';
++			fontColor = "" + value;
++		},
++		setRGBColor: function (r,g,b) { //must be between 0..1
++			if (r > 1)
++				r = 1;
++			if (r < 0)
++				r = 0;
++			if (g > 1)
++				g = 1;
++			if (g < 0)
++				g = 0;
++			if (b > 1)
++				b = 1;
++			if (b < 0)
++				b = 0;
++
++			fontColorSpace = 'rg';
++			fontColor = "" + r + " " + g + " " + b;
+ 		}
+ 	}
+ 
+-};
+\ No newline at end of file
++};

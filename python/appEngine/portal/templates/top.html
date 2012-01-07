@@ -1,0 +1,19 @@
+<table width='100%'>
+	<tr>
+		<td align='left'>Добро пожаловать в мир....</td>
+		<td><a href='/paymentcalc'>Просчет статистики по мобильному номеру</a> </td>
+		<td><a href='/forum'>Маленький форум</a></td>
+		<td><a href='/?command=reset'>Reset Memcahed</a></td>
+		<td align='right'><a href="{{ url_login }}">{{ url_logintext }}</a></td>		
+	</tr>
+</table>
+<pre>
+Real Bug
+Traceback (most recent call last):
+  File "/base/python_lib/versions/1/google/appengine/ext/webapp/__init__.py", line 507, in __call__
+    handler.get(*groups)
+  File "/base/data/home/apps/0lvins-experements/1.336262679303016438/pricePage.py", line 633, in get
+    left +=	tagName
+TypeError: cannot concatenate 'str' and 'Tags' objects
+
+</pre>

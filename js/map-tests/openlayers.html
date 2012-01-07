@@ -1,0 +1,72 @@
+<html>
+<head>
+  <title>OpenLayers Example</title>
+    <script type="text/javascript" src="http://openlayers.org/api/OpenLayers.js"></script>
+    <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"></script>
+    <script type="text/javascript" src="kml_lib.js"></script>
+    </head>
+    <body>
+      <div style="width:1200px; height:600px" id="map"></div>
+      <div>
+          <div onclick='start();' style='float:left; margin:10px;'>Start</div>
+          <div onclick='stop();' style='float:left; margin:10px;'>Stop</div>
+      </div>
+      <script defer="defer" type="text/javascript">
+        var map = new OpenLayers.Map('map');
+        var wms = new OpenLayers.Layer.WMS( "OpenLayers WMS",
+            "http://labs.metacarta.com/wms/vmap0", {layers: 'basic'} );
+        map.addLayer(wms);
+        map.zoomToMaxExtent();
+        var boxes  = new OpenLayers.Layer.Vector( "Boxes",
+            {
+                /*renderers: ["Canvas", "SVG", "VML"]*/
+            }
+        );
+        map.addLayer(boxes);
+
+        var startDate;
+
+        function start() {
+        $.ajax({
+            type: "GET",
+            url: "doc.kml",
+            dataType: "xml",
+            success: function (gxml) {
+                var parse_result = kml_parse_internal(gxml);
+                startDate = new Date();
+                for (var name in parse_result) {
+                        for(var m in parse_result[name])
+                        {
+                            if (m == 'color' || m == 'opacity')
+                                continue;
+
+                            var points = new Array();
+                            var inital_points = parse_result[name][m]['points'];
+                            for(var j=0; j<inital_points.length; j++){
+                                points.push(new OpenLayers.Geometry.Point(inital_points[j].lng, inital_points[j].lat));
+                            }
+
+                            if (parse_result[name][m]['type'] == 'poligon') {
+                                    var style_green =
+                                    {
+                                        strokeColor: "#000000",
+                                        strokeOpacity: 1,
+                                        strokeWidth: 2,
+                                        fillColor: parse_result[name]['color'],
+                                        fillOpacity: parse_result[name]['opacity']
+                                    };
+                                    box = new OpenLayers.Feature.Vector(new OpenLayers.Geometry.Polygon(new OpenLayers.Geometry.LinearRing(points)), null, style_green);
+                                    boxes.addFeatures(box);
+                            }
+                        }
+                }
+            }
+          });
+        };
+
+        function stop() {
+            alert((new Date() - startDate));
+        }
+      </script>
+</body>
+</html>

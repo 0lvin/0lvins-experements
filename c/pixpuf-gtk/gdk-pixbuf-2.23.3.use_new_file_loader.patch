@@ -1,0 +1,147 @@
+--- gdk-pixbuf-2.23.3/gdk-pixbuf/io-gif.c	2010-09-27 22:48:16.000000000 +0300
++++ gdk-pixbuf-2.23.3/gdk-pixbuf/io-gif.c	2011-05-09 22:34:52.792080685 +0300
+@@ -190,7 +190,7 @@
+ };
+ 
+ static int GetDataBlock (GifContext *, unsigned char *);
+-
++static void read_from_file(GifContext *context, FILE *file);
+ 
+ 
+ #ifdef IO_GIFDEBUG
+@@ -202,37 +202,11 @@
+ static gboolean
+ gif_read (GifContext *context, guchar *buffer, size_t len)
+ {
+-	gboolean retval;
+ #ifdef IO_GIFDEBUG
+ 	gint i;
+ #endif
+-	if (context->file) {
+-#ifdef IO_GIFDEBUG
+-		count += len;
+-		g_print ("Fsize :%d\tcount :%d\t", len, count);
+-#endif
+-		retval = (fread(buffer, len, 1, context->file) != 0);
+-
+-                if (!retval && ferror (context->file)) {
+-                        gint save_errno = errno;
+-                        g_set_error (context->error,
+-                                     G_FILE_ERROR,
+-                                     g_file_error_from_errno (save_errno),
+-                                     _("Failure reading GIF: %s"), 
+-                                     g_strerror (save_errno));
+-                }
+                 
+ #ifdef IO_GIFDEBUG
+-		if (len < 100) {
+-			for (i = 0; i < len; i++)
+-				g_print ("%d ", buffer[i]);
+-		}
+-		g_print ("\n");
+-#endif
+-                
+-		return retval;
+-	} else {
+-#ifdef IO_GIFDEBUG
+ /*  		g_print ("\tlooking for %d bytes.  size == %d, ptr == %d\n", len, context->size, context->ptr); */
+ #endif
+ 		if ((context->size - context->ptr) >= len) {
+@@ -253,7 +227,6 @@
+ 			return TRUE;
+ 		}
+ 		context->amount_needed = len - (context->size - context->ptr);
+-	}
+ 	return FALSE;
+ }
+ 
+@@ -811,6 +784,7 @@
+               gint        width,
+               gint        height)
+ {
++	g_print("update_func\n");
+         if (clip_frame (context, &x, &y, &width, &height))
+                 (*context->update_func) (context->frame->pixbuf, 
+                                          x, y, width, height,
+@@ -916,6 +890,7 @@
+                         if (context->animation->height == 0)
+                                 context->animation->height = gdk_pixbuf_get_height (context->frame->pixbuf);
+ 
++			g_print("run prepere_func\n");
+                         if (context->prepare_func)
+                                 (* context->prepare_func) (context->frame->pixbuf,
+                                                            GDK_PIXBUF_ANIMATION (context->animation),
+@@ -1432,7 +1407,6 @@
+         
+         context->animation = g_object_new (GDK_TYPE_PIXBUF_GIF_ANIM, NULL);
+ 	context->frame = NULL;
+-	context->file = NULL;
+ 	context->state = GIF_START;
+ 	context->prepare_func = NULL;
+ 	context->update_func = NULL;
+@@ -1449,6 +1423,7 @@
+ 
+ 	return context;
+ }
++
+ /* Shared library entry point */
+ static GdkPixbuf *
+ gdk_pixbuf__gif_image_load (FILE *file, GError **error)
+@@ -1468,11 +1443,12 @@
+                 return NULL;
+         }
+         
+-	context->file = file;
+         context->error = error;
+         context->stop_after_first_frame = TRUE;
+ 
+-	if (gif_main_loop (context) == -1 || context->animation->frames == NULL) {
++        read_from_file(context, file);
++
++	if (context->animation->frames == NULL) {
+                 if (context->error && *(context->error) == NULL)
+                         g_set_error_literal (context->error,
+                                              GDK_PIXBUF_ERROR,
+@@ -1611,6 +1587,30 @@
+ 	return TRUE;
+ }
+ 
++static void
++read_from_file(GifContext *context, FILE *file) {
++	guchar *buf = NULL;
++	size_t len = 0;
++	buf = g_new(guchar, 8192);
++	while(!feof(file)) {
++		len = fread(buf, 1, 8192, file);
++
++                if (len <= 0 && ferror (file)) {
++                        gint save_errno = errno;
++                        g_set_error (context->error,
++                                     G_FILE_ERROR,
++                                     g_file_error_from_errno (save_errno),
++                                     _("Failure reading GIF: %s"), 
++                                     g_strerror (save_errno));
++                }
++		g_print("loaded:%d\n",len);
++		if (len > 0)
++			gdk_pixbuf__gif_image_load_increment(context, buf, len, context->error);
++	}
++	g_free(buf);
++	gif_main_loop (context);
++}
++
+ static GdkPixbufAnimation *
+ gdk_pixbuf__gif_image_load_animation (FILE *file,
+                                       GError **error)
+@@ -1631,9 +1631,9 @@
+         }
+         
+         context->error = error;
+-	context->file = file;
++	read_from_file(context, file);
+ 
+-	if (gif_main_loop (context) == -1 || context->animation->frames == NULL) {
++	if (context->animation->frames == NULL) {
+                 if (context->error && *(context->error) == NULL)
+                         g_set_error_literal (context->error,
+                                              GDK_PIXBUF_ERROR,

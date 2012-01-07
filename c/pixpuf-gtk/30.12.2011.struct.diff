@@ -1,0 +1,1066 @@
+diff --git a/gdk-pixbuf/io-gif.c b/gdk-pixbuf/io-gif.c
+index 8a1fa3e..fc31589 100644
+--- a/gdk-pixbuf/io-gif.c
++++ b/gdk-pixbuf/io-gif.c
+@@ -92,6 +92,32 @@ enum {
+ 	GIF_DONE
+ };
+ 
++typedef struct _GifLZW GifLZW;
++struct _GifLZW
++{
++	int old_state; /* used by lzw_fill buffer */
++	/* get_code context */
++	int code_curbit;
++	int code_lastbit;
++	int code_done;
++	int code_last_byte;
++	int code_pending;
++
++	/* lzw context */
++	gint fresh;
++	gint code_size;
++	guchar set_code_size;
++	gint max_code;
++	gint max_code_size;
++	gint firstcode;
++	gint oldcode;
++	gint clear_code;
++	gint end_code;
++	gint *sp;
++
++	gint table[2][(1 << MAX_LZW_BITS)];
++	gint stack[(1 << (MAX_LZW_BITS)) * 2 + 1];    
++};
+ 
+ typedef struct _Gif89 Gif89;
+ struct _Gif89
+@@ -100,11 +126,7 @@ struct _Gif89
+ 	int delay_time;
+ 	int input_flag;
+ 	int disposal;
+-};
+-
+-typedef struct _GifContext GifContext;
+-struct _GifContext
+-{
++	
+ 	int state; /* really only relevant for progressive loading */
+ 	unsigned int width;
+ 	unsigned int height;
+@@ -122,12 +144,9 @@ struct _GifContext
+         CMap frame_color_map;
+         gint frame_colormap_size;
+         unsigned int frame_bit_pixel;
+-
++#ifdef DUMP_IMAGE_DETAILS
+ 	unsigned int aspect_ratio;
+-	GdkPixbufGifAnim *animation;
+-	GdkPixbufFrame *frame;
+-	Gif89 gif89;
+-
++#endif
+ 	/* stuff per frame. */
+ 	int frame_len;
+ 	int frame_height;
+@@ -135,6 +154,26 @@ struct _GifContext
+ 	int x_offset;
+ 	int y_offset;
+ 
++	/* extension context */
++	guchar extension_label;
++	guchar extension_flag;
++        gboolean in_loop_extension;
++
++        GifLZW lzw;
++
++	/* painting context */
++	gint draw_xpos;
++	gint draw_ypos;
++	gint draw_pass;
++};
++
++typedef struct _GifContext GifContext;
++struct _GifContext
++{
++	GdkPixbufGifAnim *animation;
++	GdkPixbufFrame *frame;
++	Gif89 gif89;
++	
+ 	/* Static read only */
+ 	FILE *file;
+ 
+@@ -147,44 +186,11 @@ struct _GifContext
+ 	guint size;
+ 	guint amount_needed;
+ 
+-	/* extension context */
+-	guchar extension_label;
+-	guchar extension_flag;
+-        gboolean in_loop_extension;
+-
+ 	/* get block context */
+ 	guchar block_count;
+ 	guchar block_buf[280];
+ 	gint block_ptr;
+ 
+-	int old_state; /* used by lzw_fill buffer */
+-	/* get_code context */
+-	int code_curbit;
+-	int code_lastbit;
+-	int code_done;
+-	int code_last_byte;
+-	int lzw_code_pending;
+-
+-	/* lzw context */
+-	gint lzw_fresh;
+-	gint lzw_code_size;
+-	guchar lzw_set_code_size;
+-	gint lzw_max_code;
+-	gint lzw_max_code_size;
+-	gint lzw_firstcode;
+-	gint lzw_oldcode;
+-	gint lzw_clear_code;
+-	gint lzw_end_code;
+-	gint *lzw_sp;
+-
+-	gint lzw_table[2][(1 << MAX_LZW_BITS)];
+-	gint lzw_stack[(1 << (MAX_LZW_BITS)) * 2 + 1];
+-
+-	/* painting context */
+-	gint draw_xpos;
+-	gint draw_ypos;
+-	gint draw_pass;
+-
+         /* error pointer */
+         GError **error;
+ };
+@@ -261,15 +267,15 @@ gif_read (GifContext *context, guchar *buffer, size_t len)
+ static void
+ gif_set_get_colormap (GifContext *context)
+ {
+-	context->global_colormap_size = 0;
+-	context->state = GIF_GET_COLORMAP;
++	context->gif89.global_colormap_size = 0;
++	context->gif89.state = GIF_GET_COLORMAP;
+ }
+ 
+ static void
+ gif_set_get_colormap2 (GifContext *context)
+ {
+-	context->frame_colormap_size = 0;
+-	context->state = GIF_GET_COLORMAP2;
++	context->gif89.frame_colormap_size = 0;
++	context->gif89.state = GIF_GET_COLORMAP2;
+ }
+ 
+ static gint
+@@ -277,22 +283,22 @@ gif_get_colormap (GifContext *context)
+ {
+ 	unsigned char rgb[3];
+ 
+-	while (context->global_colormap_size < context->global_bit_pixel) {
++	while (context->gif89.global_colormap_size < context->gif89.global_bit_pixel) {
+ 		if (!gif_read (context, rgb, sizeof (rgb))) {
+ 			return -1;
+ 		}
+ 
+-		context->global_color_map[0][context->global_colormap_size] = rgb[0];
+-		context->global_color_map[1][context->global_colormap_size] = rgb[1];
+-		context->global_color_map[2][context->global_colormap_size] = rgb[2];
++		context->gif89.global_color_map[0][context->gif89.global_colormap_size] = rgb[0];
++		context->gif89.global_color_map[1][context->gif89.global_colormap_size] = rgb[1];
++		context->gif89.global_color_map[2][context->gif89.global_colormap_size] = rgb[2];
+ 
+-                if (context->global_colormap_size == context->background_index) {
++                if (context->gif89.global_colormap_size == context->gif89.background_index) {
+                         context->animation->bg_red = rgb[0];
+                         context->animation->bg_green = rgb[1];
+                         context->animation->bg_blue = rgb[2];
+                 }
+ 
+-		context->global_colormap_size ++;
++		context->gif89.global_colormap_size ++;
+ 	}
+ 
+ 	return 0;
+@@ -304,16 +310,16 @@ gif_get_colormap2 (GifContext *context)
+ {
+ 	unsigned char rgb[3];
+ 
+-	while (context->frame_colormap_size < context->frame_bit_pixel) {
++	while (context->gif89.frame_colormap_size < context->gif89.frame_bit_pixel) {
+ 		if (!gif_read (context, rgb, sizeof (rgb))) {
+ 			return -1;
+ 		}
+ 
+-		context->frame_color_map[0][context->frame_colormap_size] = rgb[0];
+-		context->frame_color_map[1][context->frame_colormap_size] = rgb[1];
+-		context->frame_color_map[2][context->frame_colormap_size] = rgb[2];
++		context->gif89.frame_color_map[0][context->gif89.frame_colormap_size] = rgb[0];
++		context->gif89.frame_color_map[1][context->gif89.frame_colormap_size] = rgb[1];
++		context->gif89.frame_color_map[2][context->gif89.frame_colormap_size] = rgb[2];
+ 
+-		context->frame_colormap_size ++;
++		context->gif89.frame_colormap_size ++;
+ 	}
+ 
+ 	return 0;
+@@ -358,9 +364,9 @@ get_data_block (GifContext *context,
+ static void
+ gif_set_get_extension (GifContext *context)
+ {
+-	context->state = GIF_GET_EXTENSION;
+-	context->extension_flag = TRUE;
+-	context->extension_label = 0;
++	context->gif89.state = GIF_GET_EXTENSION;
++	context->gif89.extension_flag = TRUE;
++	context->gif89.extension_label = 0;
+ 	context->block_count = 0;
+ 	context->block_ptr = 0;
+ }
+@@ -371,16 +377,16 @@ gif_get_extension (GifContext *context)
+ 	gint retval;
+ 	gint empty_block = FALSE;
+ 
+-	if (context->extension_flag) {
+-		if (context->extension_label == 0) {
++	if (context->gif89.extension_flag) {
++		if (context->gif89.extension_label == 0) {
+ 			/* I guess bad things can happen if we have an extension of 0 )-: */
+ 			/* I should look into this sometime */
+-			if (!gif_read (context, & context->extension_label , 1)) {
++			if (!gif_read (context, & context->gif89.extension_label , 1)) {
+ 				return -1;
+ 			}
+ 		}
+ 
+-		switch (context->extension_label) {
++		switch (context->gif89.extension_label) {
+                 case 0xf9:			/* Graphic Control Extension */
+                         retval = get_data_block (context, (unsigned char *) context->block_buf, NULL);
+ 			if (retval != 0)
+@@ -403,20 +409,20 @@ gif_get_extension (GifContext *context)
+ 
+ 			/* Now we've successfully loaded this one, we continue on our way */
+ 			context->block_count = 0;
+-			context->extension_flag = FALSE;
++			context->gif89.extension_flag = FALSE;
+ 			break;
+                 case 0xff: /* application extension */
+-                        if (!context->in_loop_extension) { 
++                        if (!context->gif89.in_loop_extension) { 
+                                 retval = get_data_block (context, (unsigned char *) context->block_buf, NULL);
+                                 if (retval != 0)
+                                         return retval;
+                                 if (!strncmp ((gchar *)context->block_buf, "NETSCAPE2.0", 11) ||
+                                     !strncmp ((gchar *)context->block_buf, "ANIMEXTS1.0", 11)) {
+-                                        context->in_loop_extension = TRUE;
++                                        context->gif89.in_loop_extension = TRUE;
+                                 }
+                                 context->block_count = 0;
+                         }
+-                        if (context->in_loop_extension) {
++                        if (context->gif89.in_loop_extension) {
+                                 do {
+                                         retval = get_data_block (context, (unsigned char *) context->block_buf, &empty_block);
+                                         if (retval != 0)
+@@ -429,8 +435,8 @@ gif_get_extension (GifContext *context)
+                                         context->block_count = 0;
+                                 }
+                                 while (!empty_block);
+-                                context->in_loop_extension = FALSE;
+-                                context->extension_flag = FALSE;
++                                context->gif89.in_loop_extension = FALSE;
++                                context->gif89.extension_flag = FALSE;
+                                 return 0;
+                         }
+ 			break;                          
+@@ -478,8 +484,8 @@ static void
+ gif_set_lzw_fill_buffer (GifContext *context)
+ {
+ 	context->block_count = 0;
+-	context->old_state = context->state;
+-	context->state = GIF_LZW_FILL_BUFFER;
++	context->gif89.lzw.old_state = context->gif89.state;
++	context->gif89.state = GIF_LZW_FILL_BUFFER;
+ }
+ 
+ static int
+@@ -487,8 +493,8 @@ gif_lzw_fill_buffer (GifContext *context)
+ {
+ 	gint retval;
+ 
+-	if (context->code_done) {
+-		if (context->code_curbit >= context->code_lastbit) {
++	if (context->gif89.lzw.code_done) {
++		if (context->gif89.lzw.code_curbit >= context->gif89.lzw.code_lastbit) {
+                         g_set_error_literal (context->error,
+                                              GDK_PIXBUF_ERROR,
+                                              GDK_PIXBUF_ERROR_CORRUPT_IMAGE,
+@@ -507,8 +513,8 @@ gif_lzw_fill_buffer (GifContext *context)
+ 		return -2;
+ 	}
+ 
+-	context->block_buf[0] = context->block_buf[context->code_last_byte - 2];
+-	context->block_buf[1] = context->block_buf[context->code_last_byte - 1];
++	context->block_buf[0] = context->block_buf[context->gif89.lzw.code_last_byte - 2];
++	context->block_buf[1] = context->block_buf[context->gif89.lzw.code_last_byte - 1];
+ 
+ 	retval = get_data_block (context, &context->block_buf[2], NULL);
+ 
+@@ -516,13 +522,13 @@ gif_lzw_fill_buffer (GifContext *context)
+ 		return -1;
+ 
+ 	if (context->block_count == 0)
+-		context->code_done = TRUE;
++		context->gif89.lzw.code_done = TRUE;
+ 
+-	context->code_last_byte = 2 + context->block_count;
+-	context->code_curbit = (context->code_curbit - context->code_lastbit) + 16;
+-	context->code_lastbit = (2 + context->block_count) * 8;
++	context->gif89.lzw.code_last_byte = 2 + context->block_count;
++	context->gif89.lzw.code_curbit = (context->gif89.lzw.code_curbit - context->gif89.lzw.code_lastbit) + 16;
++	context->gif89.lzw.code_lastbit = (2 + context->block_count) * 8;
+ 
+-	context->state = context->old_state;
++	context->gif89.state = context->gif89.lzw.old_state;
+ 	return 0;
+ }
+ 
+@@ -532,16 +538,16 @@ get_code (GifContext *context,
+ {
+ 	int i, j, ret;
+ 
+-	if ((context->code_curbit + code_size) >= context->code_lastbit){
++	if ((context->gif89.lzw.code_curbit + code_size) >= context->gif89.lzw.code_lastbit){
+ 		gif_set_lzw_fill_buffer (context);
+ 		return -3;
+ 	}
+ 
+ 	ret = 0;
+-	for (i = context->code_curbit, j = 0; j < code_size; ++i, ++j)
++	for (i = context->gif89.lzw.code_curbit, j = 0; j < code_size; ++i, ++j)
+ 		ret |= ((context->block_buf[i / 8] & (1 << (i % 8))) != 0) << j;
+ 
+-	context->code_curbit += code_size;
++	context->gif89.lzw.code_curbit += code_size;
+ 
+ 	return ret;
+ }
+@@ -550,8 +556,8 @@ get_code (GifContext *context,
+ static void
+ set_gif_lzw_clear_code (GifContext *context)
+ {
+-	context->state = GIF_LZW_CLEAR_CODE;
+-	context->lzw_code_pending = -1;
++	context->gif89.state = GIF_LZW_CLEAR_CODE;
++	context->gif89.lzw.code_pending = -1;
+ }
+ 
+ static int
+@@ -559,19 +565,19 @@ gif_lzw_clear_code (GifContext *context)
+ {
+ 	gint code;
+ 
+-	code = get_code (context, context->lzw_code_size);
++	code = get_code (context, context->gif89.lzw.code_size);
+ 	if (code == -3)
+ 		return -0;
+ 
+-	context->lzw_firstcode = context->lzw_oldcode = code;
+-	context->lzw_code_pending = code;
+-	context->state = GIF_GET_LZW;
++	context->gif89.lzw.firstcode = context->gif89.lzw.oldcode = code;
++	context->gif89.lzw.code_pending = code;
++	context->gif89.state = GIF_GET_LZW;
+ 	return 0;
+ }
+ 
+ #define CHECK_LZW_SP() G_STMT_START {                                           \
+-        if ((guchar *)context->lzw_sp >=                                        \
+-            (guchar *)context->lzw_stack + sizeof (context->lzw_stack)) {       \
++        if ((guchar *)context->gif89.lzw.sp >=                                        \
++            (guchar *)context->gif89.lzw.stack + sizeof (context->gif89.lzw.stack)) {       \
+                  g_set_error_literal (context->error,                           \
+                                       GDK_PIXBUF_ERROR,                         \
+                                       GDK_PIXBUF_ERROR_CORRUPT_IMAGE,           \
+@@ -588,46 +594,46 @@ lzw_read_byte (GifContext *context)
+ 	gint my_retval;
+ 	register int i;
+ 
+-	if (context->lzw_code_pending != -1) {
+-		retval = context->lzw_code_pending;
+-		context->lzw_code_pending = -1;
++	if (context->gif89.lzw.code_pending != -1) {
++		retval = context->gif89.lzw.code_pending;
++		context->gif89.lzw.code_pending = -1;
+ 		return retval;
+ 	}
+ 
+-	if (context->lzw_fresh) {
+-		context->lzw_fresh = FALSE;
++	if (context->gif89.lzw.fresh) {
++		context->gif89.lzw.fresh = FALSE;
+ 		do {
+-			retval = get_code (context, context->lzw_code_size);
++			retval = get_code (context, context->gif89.lzw.code_size);
+ 			if (retval < 0) {
+ 				return retval;
+ 			}
+ 
+-			context->lzw_firstcode = context->lzw_oldcode = retval;
+-		} while (context->lzw_firstcode == context->lzw_clear_code);
+-		return context->lzw_firstcode;
++			context->gif89.lzw.firstcode = context->gif89.lzw.oldcode = retval;
++		} while (context->gif89.lzw.firstcode == context->gif89.lzw.clear_code);
++		return context->gif89.lzw.firstcode;
+ 	}
+ 
+-	if (context->lzw_sp > context->lzw_stack) {
+-		my_retval = *--(context->lzw_sp);
++	if (context->gif89.lzw.sp > context->gif89.lzw.stack) {
++		my_retval = *--(context->gif89.lzw.sp);
+ 		return my_retval;
+ 	}
+ 
+-	while ((code = get_code (context, context->lzw_code_size)) >= 0) {
+-		if (code == context->lzw_clear_code) {
+-			for (i = 0; i < context->lzw_clear_code; ++i) {
+-				context->lzw_table[0][i] = 0;
+-				context->lzw_table[1][i] = i;
++	while ((code = get_code (context, context->gif89.lzw.code_size)) >= 0) {
++		if (code == context->gif89.lzw.clear_code) {
++			for (i = 0; i < context->gif89.lzw.clear_code; ++i) {
++				context->gif89.lzw.table[0][i] = 0;
++				context->gif89.lzw.table[1][i] = i;
+ 			}
+ 			for (; i < (1 << MAX_LZW_BITS); ++i)
+-				context->lzw_table[0][i] = context->lzw_table[1][i] = 0;
+-			context->lzw_code_size = context->lzw_set_code_size + 1;
+-			context->lzw_max_code_size = 2 * context->lzw_clear_code;
+-			context->lzw_max_code = context->lzw_clear_code + 2;
+-			context->lzw_sp = context->lzw_stack;
++				context->gif89.lzw.table[0][i] = context->gif89.lzw.table[1][i] = 0;
++			context->gif89.lzw.code_size = context->gif89.lzw.set_code_size + 1;
++			context->gif89.lzw.max_code_size = 2 * context->gif89.lzw.clear_code;
++			context->gif89.lzw.max_code = context->gif89.lzw.clear_code + 2;
++			context->gif89.lzw.sp = context->gif89.lzw.stack;
+ 
+ 			set_gif_lzw_clear_code (context);
+ 			return -3;
+-		} else if (code == context->lzw_end_code) {
++		} else if (code == context->gif89.lzw.end_code) {
+ 			int count;
+ 			unsigned char buf[260];
+ 
+@@ -653,13 +659,13 @@ lzw_read_byte (GifContext *context)
+ 
+ 		incode = code;
+ 
+-		if (code >= context->lzw_max_code) {
++		if (code >= context->gif89.lzw.max_code) {
+                         CHECK_LZW_SP ();
+-			*(context->lzw_sp)++ = context->lzw_firstcode;
+-			code = context->lzw_oldcode;
++			*(context->gif89.lzw.sp)++ = context->gif89.lzw.firstcode;
++			code = context->gif89.lzw.oldcode;
+ 		}
+ 
+-		while (code >= context->lzw_clear_code) {
++		while (code >= context->gif89.lzw.clear_code) {
+                         if (code >= (1 << MAX_LZW_BITS)) {
+                                 g_set_error_literal (context->error,
+                                                      GDK_PIXBUF_ERROR,
+@@ -668,36 +674,36 @@ lzw_read_byte (GifContext *context)
+ 				return -2;
+                         }
+                         CHECK_LZW_SP ();
+-			*(context->lzw_sp)++ = context->lzw_table[1][code];
++			*(context->gif89.lzw.sp)++ = context->gif89.lzw.table[1][code];
+ 
+-			if (code == context->lzw_table[0][code]) {
++			if (code == context->gif89.lzw.table[0][code]) {
+                                 g_set_error_literal (context->error,
+                                                      GDK_PIXBUF_ERROR,
+                                                      GDK_PIXBUF_ERROR_CORRUPT_IMAGE,
+                                                      _("Circular table entry in GIF file"));
+ 				return -2;
+ 			}
+-			code = context->lzw_table[0][code];
++			code = context->gif89.lzw.table[0][code];
+ 		}
+ 
+                 CHECK_LZW_SP ();
+-		*(context->lzw_sp)++ = context->lzw_firstcode = context->lzw_table[1][code];
+-
+-		if ((code = context->lzw_max_code) < (1 << MAX_LZW_BITS)) {
+-			context->lzw_table[0][code] = context->lzw_oldcode;
+-			context->lzw_table[1][code] = context->lzw_firstcode;
+-			++context->lzw_max_code;
+-			if ((context->lzw_max_code >= context->lzw_max_code_size) &&
+-			    (context->lzw_max_code_size < (1 << MAX_LZW_BITS))) {
+-				context->lzw_max_code_size *= 2;
+-				++context->lzw_code_size;
++		*(context->gif89.lzw.sp)++ = context->gif89.lzw.firstcode = context->gif89.lzw.table[1][code];
++
++		if ((code = context->gif89.lzw.max_code) < (1 << MAX_LZW_BITS)) {
++			context->gif89.lzw.table[0][code] = context->gif89.lzw.oldcode;
++			context->gif89.lzw.table[1][code] = context->gif89.lzw.firstcode;
++			++context->gif89.lzw.max_code;
++			if ((context->gif89.lzw.max_code >= context->gif89.lzw.max_code_size) &&
++			    (context->gif89.lzw.max_code_size < (1 << MAX_LZW_BITS))) {
++				context->gif89.lzw.max_code_size *= 2;
++				++context->gif89.lzw.code_size;
+ 			}
+ 		}
+ 
+-		context->lzw_oldcode = incode;
++		context->gif89.lzw.oldcode = incode;
+ 
+-		if (context->lzw_sp > context->lzw_stack) {
+-			my_retval = *--(context->lzw_sp);
++		if (context->gif89.lzw.sp > context->gif89.lzw.stack) {
++			my_retval = *--(context->gif89.lzw.sp);
+ 			return my_retval;
+ 		}
+ 	}
+@@ -707,10 +713,10 @@ lzw_read_byte (GifContext *context)
+ static void
+ gif_set_get_lzw (GifContext *context)
+ {
+-	context->state = GIF_GET_LZW;
+-	context->draw_xpos = 0;
+-	context->draw_ypos = 0;
+-	context->draw_pass = 0;
++	context->gif89.state = GIF_GET_LZW;
++	context->gif89.draw_xpos = 0;
++	context->gif89.draw_ypos = 0;
++	context->gif89.draw_pass = 0;
+ }
+ 
+ static void
+@@ -719,19 +725,19 @@ gif_fill_in_pixels (GifContext *context, guchar *dest, gint offset, guchar v)
+ 	guchar *pixel = NULL;
+         guchar (*cmap)[MAXCOLORMAPSIZE];
+ 
+-        if (context->frame_cmap_active)
+-                cmap = context->frame_color_map;
++        if (context->gif89.frame_cmap_active)
++                cmap = context->gif89.frame_color_map;
+         else
+-                cmap = context->global_color_map;
++                cmap = context->gif89.global_color_map;
+         
+ 	if (context->gif89.transparent != -1) {
+-		pixel = dest + (context->draw_ypos + offset) * gdk_pixbuf_get_rowstride (context->frame->pixbuf) + context->draw_xpos * 4;
++		pixel = dest + (context->gif89.draw_ypos + offset) * gdk_pixbuf_get_rowstride (context->frame->pixbuf) + context->gif89.draw_xpos * 4;
+ 		*pixel = cmap [0][(guchar) v];
+ 		*(pixel+1) = cmap [1][(guchar) v];
+ 		*(pixel+2) = cmap [2][(guchar) v];
+ 		*(pixel+3) = (guchar) ((v == context->gif89.transparent) ? 0 : 255);
+ 	} else {
+-		pixel = dest + (context->draw_ypos + offset) * gdk_pixbuf_get_rowstride (context->frame->pixbuf) + context->draw_xpos * 3;
++		pixel = dest + (context->gif89.draw_ypos + offset) * gdk_pixbuf_get_rowstride (context->frame->pixbuf) + context->gif89.draw_xpos * 3;
+ 		*pixel = cmap [0][(guchar) v];
+ 		*(pixel+1) = cmap [1][(guchar) v];
+ 		*(pixel+2) = cmap [2][(guchar) v];
+@@ -743,13 +749,13 @@ gif_fill_in_pixels (GifContext *context, guchar *dest, gint offset, guchar v)
+ static void
+ gif_fill_in_lines (GifContext *context, guchar *dest, guchar v)
+ {
+-	switch (context->draw_pass) {
++	switch (context->gif89.draw_pass) {
+ 	case 0:
+-		if (context->draw_ypos > 4) {
++		if (context->gif89.draw_ypos > 4) {
+ 			gif_fill_in_pixels (context, dest, -4, v);
+ 			gif_fill_in_pixels (context, dest, -3, v);
+ 		}
+-		if (context->draw_ypos < (context->frame_height - 4)) {
++		if (context->gif89.draw_ypos < (context->gif89.frame_height - 4)) {
+ 			gif_fill_in_pixels (context, dest, 3, v);
+ 			gif_fill_in_pixels (context, dest, 4, v);
+ 		}
+@@ -757,15 +763,15 @@ gif_fill_in_lines (GifContext *context, guchar *dest, guchar v)
+ 		 * inner ones, then the innermost ones.  case 0 needs to draw all 3 bands.
+ 		 * case 1, just the last two, and case 2 just draws the last one*/
+ 	case 1:
+-		if (context->draw_ypos > 2)
++		if (context->gif89.draw_ypos > 2)
+ 			gif_fill_in_pixels (context, dest, -2, v);
+-		if (context->draw_ypos < (context->frame_height - 2))
++		if (context->gif89.draw_ypos < (context->gif89.frame_height - 2))
+ 			gif_fill_in_pixels (context, dest, 2, v);
+ 		/* no break as above. */
+ 	case 2:
+-		if (context->draw_ypos > 1)
++		if (context->gif89.draw_ypos > 1)
+ 			gif_fill_in_pixels (context, dest, -1, v);
+-		if (context->draw_ypos < (context->frame_height - 1))
++		if (context->gif89.draw_ypos < (context->gif89.frame_height - 1))
+ 			gif_fill_in_pixels (context, dest, 1, v);
+ 	case 3:
+ 	default:
+@@ -787,8 +793,8 @@ clip_frame (GifContext *context,
+         orig_y = *y;
+ 	*x = MAX (0, *x);
+ 	*y = MAX (0, *y);
+-	*width = MIN (context->width, orig_x + *width) - *x;
+-	*height = MIN (context->height, orig_y + *height) - *y;
++	*width = MIN (context->animation->width, orig_x + *width) - *x;
++	*height = MIN (context->animation->height, orig_y + *height) - *y;
+ 
+ 	if (*width > 0 && *height > 0)
+ 		return TRUE;
+@@ -832,14 +838,14 @@ gif_get_lzw (GifContext *context)
+                 context->frame->composited = NULL;
+                 context->frame->revert = NULL;
+                 
+-                if (context->frame_len == 0 || context->frame_height == 0) {
++                if (context->gif89.frame_len == 0 || context->gif89.frame_height == 0) {
+                         /* An empty frame, we just output a single transparent
+                          * pixel at (0, 0).
+                          */
+-                        context->x_offset = 0;
+-                        context->y_offset = 0;
+-                        context->frame_len = 1;
+-                        context->frame_height = 1;
++                        context->gif89.x_offset = 0;
++                        context->gif89.y_offset = 0;
++                        context->gif89.frame_len = 1;
++                        context->gif89.frame_height = 1;
+                         context->frame->pixbuf = gdk_pixbuf_new (GDK_COLORSPACE_RGB, TRUE, 8, 1, 1);
+                         if (context->frame->pixbuf) {
+                                 guchar *pixels;
+@@ -855,8 +861,8 @@ gif_get_lzw (GifContext *context)
+                                 gdk_pixbuf_new (GDK_COLORSPACE_RGB,
+                                                 TRUE,
+                                                 8,
+-                                                context->frame_len,
+-                                                context->frame_height);
++                                                context->gif89.frame_len,
++                                                context->gif89.frame_height);
+                 if (!context->frame->pixbuf) {
+                         g_free (context->frame);
+                         g_set_error_literal (context->error,
+@@ -866,8 +872,8 @@ gif_get_lzw (GifContext *context)
+                         return -2;
+                 }
+ 
+-                context->frame->x_offset = context->x_offset;
+-                context->frame->y_offset = context->y_offset;
++                context->frame->x_offset = context->gif89.x_offset;
++                context->frame->y_offset = context->gif89.y_offset;
+                 context->frame->need_recomposite = TRUE;
+                 
+                 /* GIF delay is in hundredths, we want thousandths */
+@@ -904,7 +910,7 @@ gif_get_lzw (GifContext *context)
+                         break;
+                 }
+ 
+-                context->frame->bg_transparent = (context->gif89.transparent == context->background_index);
++                context->frame->bg_transparent = (context->gif89.transparent == context->gif89.background_index);
+                 
+                 context->animation->n_frames ++;
+                 context->animation->frames = g_list_append (context->animation->frames, context->frame);
+@@ -975,16 +981,16 @@ gif_get_lzw (GifContext *context)
+ 	dest = gdk_pixbuf_get_pixels (context->frame->pixbuf);
+ 
+ 	bound_flag = FALSE;
+-	lower_bound = upper_bound = context->draw_ypos;
+-	first_pass = context->draw_pass;
++	lower_bound = upper_bound = context->gif89.draw_ypos;
++	first_pass = context->gif89.draw_pass;
+ 
+ 	while (TRUE) {
+                 guchar (*cmap)[MAXCOLORMAPSIZE];
+ 
+-                if (context->frame_cmap_active)
+-                        cmap = context->frame_color_map;
++                if (context->gif89.frame_cmap_active)
++                        cmap = context->gif89.frame_color_map;
+                 else
+-                        cmap = context->global_color_map;
++                        cmap = context->gif89.global_color_map;
+                 
+ 		v = lzw_read_byte (context);
+ 		if (v < 0) {
+@@ -994,69 +1000,69 @@ gif_get_lzw (GifContext *context)
+ 
+                 g_assert (gdk_pixbuf_get_has_alpha (context->frame->pixbuf));
+                 
+-                temp = dest + context->draw_ypos * gdk_pixbuf_get_rowstride (context->frame->pixbuf) + context->draw_xpos * 4;
++                temp = dest + context->gif89.draw_ypos * gdk_pixbuf_get_rowstride (context->frame->pixbuf) + context->gif89.draw_xpos * 4;
+                 *temp = cmap [0][(guchar) v];
+                 *(temp+1) = cmap [1][(guchar) v];
+                 *(temp+2) = cmap [2][(guchar) v];
+                 *(temp+3) = (guchar) ((v == context->gif89.transparent) ? 0 : 255);
+ 
+-		if (context->prepare_func && context->frame_interlace)
++		if (context->prepare_func && context->gif89.frame_interlace)
+ 			gif_fill_in_lines (context, dest, v);
+ 
+-		context->draw_xpos++;
++		context->gif89.draw_xpos++;
+                 
+-		if (context->draw_xpos == context->frame_len) {
+-			context->draw_xpos = 0;
+-			if (context->frame_interlace) {
+-				switch (context->draw_pass) {
++		if (context->gif89.draw_xpos == context->gif89.frame_len) {
++			context->gif89.draw_xpos = 0;
++			if (context->gif89.frame_interlace) {
++				switch (context->gif89.draw_pass) {
+ 				case 0:
+ 				case 1:
+-					context->draw_ypos += 8;
++					context->gif89.draw_ypos += 8;
+ 					break;
+ 				case 2:
+-					context->draw_ypos += 4;
++					context->gif89.draw_ypos += 4;
+ 					break;
+ 				case 3:
+-					context->draw_ypos += 2;
++					context->gif89.draw_ypos += 2;
+ 					break;
+ 				}
+ 
+-				if (context->draw_ypos >= context->frame_height) {
+-					context->draw_pass++;
+-					switch (context->draw_pass) {
++				if (context->gif89.draw_ypos >= context->gif89.frame_height) {
++					context->gif89.draw_pass++;
++					switch (context->gif89.draw_pass) {
+ 					case 1:
+-						context->draw_ypos = 4;
++						context->gif89.draw_ypos = 4;
+ 						break;
+ 					case 2:
+-						context->draw_ypos = 2;
++						context->gif89.draw_ypos = 2;
+ 						break;
+ 					case 3:
+-						context->draw_ypos = 1;
++						context->gif89.draw_ypos = 1;
+ 						break;
+ 					default:
+ 						goto done;
+ 					}
+ 				}
+ 			} else {
+-				context->draw_ypos++;
++				context->gif89.draw_ypos++;
+ 			}
+-			if (context->draw_pass != first_pass) {
+-				if (context->draw_ypos > lower_bound) {
++			if (context->gif89.draw_pass != first_pass) {
++				if (context->gif89.draw_ypos > lower_bound) {
+ 					lower_bound = 0;
+-					upper_bound = context->frame_height;
++					upper_bound = context->gif89.frame_height;
+ 				} else {
+                                         
+ 				}
+ 			} else
+-				upper_bound = context->draw_ypos;
++				upper_bound = context->gif89.draw_ypos;
+ 		}
+-		if (context->draw_ypos >= context->frame_height)
++		if (context->gif89.draw_ypos >= context->gif89.frame_height)
+ 			break;
+ 	}
+ 
+  done:
+ 
+-        context->state = GIF_GET_NEXT_STEP;
++        context->gif89.state = GIF_GET_NEXT_STEP;
+ 
+         v = 0;
+ 
+@@ -1066,7 +1072,7 @@ gif_get_lzw (GifContext *context)
+                 context->frame->need_recomposite = TRUE;
+         
+ 	if (bound_flag && context->update_func) {
+-		if (lower_bound <= upper_bound && first_pass == context->draw_pass) {
++		if (lower_bound <= upper_bound && first_pass == context->gif89.draw_pass) {
+                         maybe_update (context, 
+                                       context->frame->x_offset,
+                                       context->frame->y_offset + lower_bound,
+@@ -1094,15 +1100,15 @@ gif_get_lzw (GifContext *context)
+ 		}
+ 	}
+ 
+-	if (context->state == GIF_GET_NEXT_STEP) {
++	if (context->gif89.state == GIF_GET_NEXT_STEP) {
+                 /* Will be freed with context->animation, we are just
+                  * marking that we're done with it (no current frame)
+                  */
+ 		context->frame = NULL;
+-                context->frame_cmap_active = FALSE;
++                context->gif89.frame_cmap_active = FALSE;
+ 
+-                if (context->stop_after_first_frame)
+-                        context->state =  GIF_DONE;
++                if (context->gif89.stop_after_first_frame)
++                        context->gif89.state =  GIF_DONE;
+ 	}
+ 	
+ 	return v;
+@@ -1111,20 +1117,20 @@ gif_get_lzw (GifContext *context)
+ static void
+ gif_set_prepare_lzw (GifContext *context)
+ {
+-	context->state = GIF_PREPARE_LZW;
+-	context->lzw_code_pending = -1;
++	context->gif89.state = GIF_PREPARE_LZW;
++	context->gif89.lzw.code_pending = -1;
+ }
+ static int
+ gif_prepare_lzw (GifContext *context)
+ {
+ 	gint i;
+ 
+-	if (!gif_read (context, &(context->lzw_set_code_size), 1)) {
++	if (!gif_read (context, &(context->gif89.lzw.set_code_size), 1)) {
+ 		/*g_message (_("GIF: EOF / read error on image data\n"));*/
+ 		return -1;
+ 	}
+         
+-        if (context->lzw_set_code_size > MAX_LZW_BITS) {
++        if (context->gif89.lzw.set_code_size > MAX_LZW_BITS) {
+                 g_set_error_literal (context->error,
+                                      GDK_PIXBUF_ERROR,
+                                      GDK_PIXBUF_ERROR_CORRUPT_IMAGE,
+@@ -1132,28 +1138,28 @@ gif_prepare_lzw (GifContext *context)
+                 return -2;
+         }
+ 
+-	context->lzw_code_size = context->lzw_set_code_size + 1;
+-	context->lzw_clear_code = 1 << context->lzw_set_code_size;
+-	context->lzw_end_code = context->lzw_clear_code + 1;
+-	context->lzw_max_code_size = 2 * context->lzw_clear_code;
+-	context->lzw_max_code = context->lzw_clear_code + 2;
+-	context->lzw_fresh = TRUE;
+-	context->code_curbit = 0;
+-	context->code_lastbit = 0;
+-	context->code_last_byte = 0;
+-	context->code_done = FALSE;
+-
+-        g_assert (context->lzw_clear_code <= 
+-                  G_N_ELEMENTS (context->lzw_table[0]));
+-
+-	for (i = 0; i < context->lzw_clear_code; ++i) {
+-		context->lzw_table[0][i] = 0;
+-		context->lzw_table[1][i] = i;
++	context->gif89.lzw.code_size = context->gif89.lzw.set_code_size + 1;
++	context->gif89.lzw.clear_code = 1 << context->gif89.lzw.set_code_size;
++	context->gif89.lzw.end_code = context->gif89.lzw.clear_code + 1;
++	context->gif89.lzw.max_code_size = 2 * context->gif89.lzw.clear_code;
++	context->gif89.lzw.max_code = context->gif89.lzw.clear_code + 2;
++	context->gif89.lzw.fresh = TRUE;
++	context->gif89.lzw.code_curbit = 0;
++	context->gif89.lzw.code_lastbit = 0;
++	context->gif89.lzw.code_last_byte = 0;
++	context->gif89.lzw.code_done = FALSE;
++
++        g_assert (context->gif89.lzw.clear_code <= 
++                  G_N_ELEMENTS (context->gif89.lzw.table[0]));
++
++	for (i = 0; i < context->gif89.lzw.clear_code; ++i) {
++		context->gif89.lzw.table[0][i] = 0;
++		context->gif89.lzw.table[1][i] = i;
+ 	}
+ 	for (; i < (1 << MAX_LZW_BITS); ++i)
+-		context->lzw_table[0][i] = context->lzw_table[1][0] = 0;
++		context->gif89.lzw.table[0][i] = context->gif89.lzw.table[1][0] = 0;
+ 
+-	context->lzw_sp = context->lzw_stack;
++	context->gif89.lzw.sp = context->gif89.lzw.stack;
+ 	gif_set_get_lzw (context);
+ 
+ 	return 0;
+@@ -1201,19 +1207,21 @@ gif_init (GifContext *context)
+ 		return -1;
+ 	}
+ 
+-	context->width = LM_to_uint (buf[0], buf[1]);
+-	context->height = LM_to_uint (buf[2], buf[3]);
++	context->animation->width = LM_to_uint (buf[0], buf[1]);
++	context->animation->height = LM_to_uint (buf[2], buf[3]);
+         /* The 4th byte is
+          * high bit: whether to use the background index
+          * next 3:   color resolution
+          * next:     whether colormap is sorted by priority of allocation
+          * last 3:   size of colormap
+          */
+-	context->global_bit_pixel = 2 << (buf[4] & 0x07);
+-	context->global_color_resolution = (((buf[4] & 0x70) >> 3) + 1);
+-        context->has_global_cmap = (buf[4] & 0x80) != 0;
+-	context->background_index = buf[5];
++	context->gif89.global_bit_pixel = 2 << (buf[4] & 0x07);
++	context->gif89.global_color_resolution = (((buf[4] & 0x70) >> 3) + 1);
++        context->gif89.has_global_cmap = (buf[4] & 0x80) != 0;
++	context->gif89.background_index = buf[5];
++#ifdef DUMP_IMAGE_DETAILS
+ 	context->aspect_ratio = buf[6];
++#endif
+ 
+         /* Use background of transparent black as default, though if
+          * one isn't set explicitly no one should ever use it.
+@@ -1222,18 +1230,15 @@ gif_init (GifContext *context)
+         context->animation->bg_green = 0;
+         context->animation->bg_blue = 0;
+ 
+-        context->animation->width = context->width;
+-        context->animation->height = context->height;
+-
+-	if (context->has_global_cmap) {
++	if (context->gif89.has_global_cmap) {
+ 		gif_set_get_colormap (context);
+ 	} else {
+-		context->state = GIF_GET_NEXT_STEP;
++		context->gif89.state = GIF_GET_NEXT_STEP;
+ 	}
+ 
+ #ifdef DUMP_IMAGE_DETAILS
+         g_print (">Image width: %d height: %d global_cmap: %d background: %d\n",
+-                 context->width, context->height, context->has_global_cmap, context->background_index);
++                 context->animation->width, context->animation->height, context->gif89.has_global_cmap, context->gif89.background_index);
+ #endif
+         
+ 	return 0;
+@@ -1242,7 +1247,7 @@ gif_init (GifContext *context)
+ static void
+ gif_set_get_frame_info (GifContext *context)
+ {
+-	context->state = GIF_GET_FRAME_INFO;
++	context->gif89.state = GIF_GET_FRAME_INFO;
+ }
+ 
+ static gint
+@@ -1255,10 +1260,10 @@ gif_get_frame_info (GifContext *context)
+ 	}
+         
+ 	/* Okay, we got all the info we need.  Lets record it */
+-	context->frame_len = LM_to_uint (buf[4], buf[5]);
+-	context->frame_height = LM_to_uint (buf[6], buf[7]);
+-	context->x_offset = LM_to_uint (buf[0], buf[1]);
+-	context->y_offset = LM_to_uint (buf[2], buf[3]);
++	context->gif89.frame_len = LM_to_uint (buf[4], buf[5]);
++	context->gif89.frame_height = LM_to_uint (buf[6], buf[7]);
++	context->gif89.x_offset = LM_to_uint (buf[0], buf[1]);
++	context->gif89.y_offset = LM_to_uint (buf[2], buf[3]);
+ 
+ 	if (context->animation->frames == NULL &&
+             context->gif89.disposal == 3) {
+@@ -1268,12 +1273,12 @@ gif_get_frame_info (GifContext *context)
+                 context->gif89.disposal = 0;
+ 	}
+ 
+-	context->frame_interlace = BitSet (buf[8], INTERLACE);
++	context->gif89.frame_interlace = BitSet (buf[8], INTERLACE);
+ 
+ #ifdef DUMP_IMAGE_DETAILS
+         g_print (">width: %d height: %d xoffset: %d yoffset: %d disposal: %d delay: %d transparent: %d interlace: %d\n",
+-                 context->frame_len, context->frame_height, context->x_offset, context->y_offset,
+-                 context->gif89.disposal, context->gif89.delay_time, context->gif89.transparent, context->frame_interlace);
++                 context->gif89.frame_len, context->gif89.frame_height, context->gif89.x_offset, context->gif89.y_offset,
++                 context->gif89.disposal, context->gif89.delay_time, context->gif89.transparent, context->gif89.frame_interlace);
+ #endif
+         
+ 	if (BitSet (buf[8], LOCALCOLORMAP)) {
+@@ -1287,14 +1292,14 @@ gif_get_frame_info (GifContext *context)
+ 		 * of an animated gif. */
+ 		/* if it does, we need to re-read in the colormap,
+ 		 * the gray_scale, and the bit_pixel */
+-                context->frame_cmap_active = TRUE;
+-		context->frame_bit_pixel = 1 << ((buf[8] & 0x07) + 1);
++                context->gif89.frame_cmap_active = TRUE;
++		context->gif89.frame_bit_pixel = 1 << ((buf[8] & 0x07) + 1);
+ 		gif_set_get_colormap2 (context);
+ 		return 0;
+ 	}
+ 
+-        if (!context->has_global_cmap) {
+-                context->state = GIF_DONE;
++        if (!context->gif89.has_global_cmap) {
++                context->gif89.state = GIF_DONE;
+                 
+                 g_set_error_literal (context->error,
+                                      GDK_PIXBUF_ERROR,
+@@ -1321,7 +1326,7 @@ gif_get_next_step (GifContext *context)
+ 			/* GIF terminator */
+ 			/* hmm.  Not 100% sure what to do about this.  Should
+ 			 * i try to return a blank image instead? */
+-			context->state = GIF_DONE;
++			context->gif89.state = GIF_DONE;
+ 			return 0;
+ 		}
+ 
+@@ -1351,7 +1356,7 @@ gif_main_loop (GifContext *context)
+ 	gint retval = 0;
+ 
+ 	do {
+-		switch (context->state) {
++		switch (context->gif89.state) {
+ 		case GIF_START:
+                         LOG("start\n");
+ 			retval = gif_init (context);
+@@ -1361,7 +1366,7 @@ gif_main_loop (GifContext *context)
+                         LOG("get_colormap\n");
+ 			retval = gif_get_colormap (context);
+ 			if (retval == 0)
+-				context->state = GIF_GET_NEXT_STEP;
++				context->gif89.state = GIF_GET_NEXT_STEP;
+ 			break;
+ 
+ 		case GIF_GET_NEXT_STEP:
+@@ -1378,7 +1383,7 @@ gif_main_loop (GifContext *context)
+                         LOG("get_extension\n");
+ 			retval = gif_get_extension (context);
+ 			if (retval == 0)
+-				context->state = GIF_GET_NEXT_STEP;
++				context->gif89.state = GIF_GET_NEXT_STEP;
+ 			break;
+ 
+ 		case GIF_GET_COLORMAP2:
+@@ -1433,7 +1438,7 @@ new_context (void)
+         context->animation = g_object_new (GDK_TYPE_PIXBUF_GIF_ANIM, NULL);
+ 	context->frame = NULL;
+ 	context->file = NULL;
+-	context->state = GIF_START;
++	context->gif89.state = GIF_START;
+ 	context->prepare_func = NULL;
+ 	context->update_func = NULL;
+ 	context->user_data = NULL;
+@@ -1444,8 +1449,8 @@ new_context (void)
+ 	context->gif89.input_flag = -1;
+ 	context->gif89.disposal = -1;
+         context->animation->loop = 1;
+-        context->in_loop_extension = FALSE;
+-        context->stop_after_first_frame = FALSE;
++        context->gif89.in_loop_extension = FALSE;
++        context->gif89.stop_after_first_frame = FALSE;
+ 
+ 	return context;
+ }
+@@ -1471,7 +1476,7 @@ gdk_pixbuf__gif_image_load (FILE *file, GError **error)
+         
+ 	context->file = file;
+         context->error = error;
+-        context->stop_after_first_frame = TRUE;
++        context->gif89.stop_after_first_frame = TRUE;
+ 
+         retval = gif_main_loop (context);
+ 	if (retval == -1 || context->animation->frames == NULL) {
+@@ -1536,7 +1541,7 @@ gdk_pixbuf__gif_image_stop_load (gpointer data, GError **error)
+ 	GifContext *context = (GifContext *) data;
+         gboolean retval = TRUE;
+         
+-        if (context->state != GIF_DONE || context->animation->frames == NULL) {
++        if (context->gif89.state != GIF_DONE || context->animation->frames == NULL) {
+                 g_set_error_literal (error,
+                                      GDK_PIXBUF_ERROR,
+                                      GDK_PIXBUF_ERROR_CORRUPT_IMAGE,

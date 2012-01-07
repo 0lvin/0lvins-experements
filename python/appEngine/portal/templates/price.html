@@ -1,0 +1,153 @@
+	{% if rubrics %}
+		Выберите рубрику:
+		<table>
+			{% for ribric in rubrics %}
+				<tr>
+					<td><a href='?rubric={{ ribric }}'>{{ ribric }}</a></td>
+				</tr>
+			{% endfor %}			
+		</table>
+	{% endif %}
+	
+	{% if addrubric %}
+		<form action='/?type=rubric' method='post' width='100%' enctype='multipart/form-data'>
+			<table>
+				<tr>
+					<td>Имя рубрики</td>
+					<td><input type="text" name="rubric" value=''/></td>
+				</tr>
+				<tr>
+					<td colspan='2'><input type='submit' value='Сохранить'></td>
+				</tr>
+			</table>
+		</form>
+	{% endif %}
+	
+	{% if subrubrics %}
+		Выберите подрубрику:
+		<table>
+			{% for subribric in subrubrics %}
+				<tr>
+					<td><a href='?rubric={{ rubric_name }}&subrubric={{ subribric }}'>{{ subribric }}</a></td>
+				</tr>
+			{% endfor %}			
+		</table>
+	{% endif %}
+	
+	{% if addsubrubric %}
+		<form action='/?type=subrubric&rubric={{ rubric_name }}' method='post' width='100%' enctype='multipart/form-data'>
+			<table>
+				<tr>
+					<td>Имя рубрики</td>
+					<td>{{ rubric_name }}</td>
+				</tr>
+
+				<tr>
+					<td>Имя подрубрики</td>
+					<td><input type="text" name="subrubric" value=''/></td>
+				</tr>
+				<tr>
+					<td colspan='2'><input type='submit' value='Сохранить'></td>
+				</tr>
+			</table>
+		</form>
+	{% endif %}
+	
+	{% if objects %}
+			<h1>Результат для {{ rubric_name }} в {{ subrubric_name }}</h1>
+				<table style='border-style: dotted none none; border-color: rgb(241, 163, 0); border-width: 1px; font-size: 14px;' width='600'>
+				{% for object in objects %}
+					<tr>
+						<td>
+							{{ object.title }}
+						</td>
+						<td>
+							{{ object.object_id }}
+						</td>
+						<td>
+							{{ object.price }}
+						</td>
+						<td>
+							{{ object.rubric }}
+						</td>
+						<td>
+							{% if object.tags %}
+								<table>
+									{% for tag in object.tags %}
+										<tr>
+											<td>{{ tag }}</td>
+										</tr>
+									{% endfor %}
+								</table>
+							{% endif%}
+						</td>
+					</tr>
+				{% endfor %}
+				{% if lastKey %}
+					<tr>
+						<td colspan='2'><a href='/?{{ lastKey }}&coomand=next'>Next</a></td>
+						<td colspan='2'><a href='/?{{ lastKey }}&command=clean'>Clean</a></td>
+					</tr>
+				{% endif %}
+				</table>		
+	{% endif %}
+	{% if addobject %}		
+		<form action='/?type=price&rubric={{ rubric_name }}&subrubric={{ subrubric_name }}' method='post' width='100%' enctype='multipart/form-data'>
+			<table>
+				<tr>
+					<td>Имя рубрики</td>
+					<td>{{ rubric_name }}</td>
+				</tr>
+
+				<tr>
+					<td>Имя подрубрики</td>
+					<td>{{ subrubric_name }}</td>
+				</tr>
+				<tr>
+					<td colspan='2'>Значения по умолчанию выбраны для тестового файла</td>
+				</tr>
+				<tr>
+					<td>Файл:</td>
+					<td><input type="file" name="cvs"/></td>
+				</tr>
+				<tr>
+					<td>Количество строк для пропуска:</td>
+					<td><input type="text" name="skipfrom" value='0'/></td>
+				</tr>
+				<tr>
+					<td>Пропускать с строки</td>
+					<td><input type="text" name="skipto" value='100'/></td>
+				</tr>
+				<tr>
+					<td>Разделитель:</td>
+					<td><input type="text" name="split" value='|'/></td>
+				</tr>
+				<tr>
+					<td>Номер товара:</td>
+					<td><input type="text" name="number" value='0'/></td>
+				</tr>
+				<tr>
+					<td>Описание:</td>
+					<td><input type="text" name="title" value='1'/></td>
+				</tr>
+				<tr>
+					<td>Цена:</td>
+					<td><input type="text" name="price" value='4'/></td>
+				</tr>
+				<tr>
+					<td>Кодировка:</td>
+					<td><input type="text" name="encodings" value='utf8'/></td>	
+				</tr>
+				<tr>
+					<td colspan='2'><input type='submit' value='Записать'></td>
+				</tr>
+			</table>
+		</form>
+	{% endif %}
+	
+	{% if internalData %}
+		<h1>Ошибки при разборе</h1>
+		<table border=1>
+			{{ internalData }}
+		</table>
+	{% endif %}

@@ -1,0 +1,52 @@
+	{% if result %}
+		<h1>Расчет затрат</h1>
+		<table>
+			{{ result }}
+		</table>
+	{% endif %}
+		
+	<form action='/paymentcalc' method='post' width='100%' enctype='multipart/form-data'>
+		<table>
+			<tr>
+				<td colspan='2'>Значения по умолчанию выбраны для kyivstar</td>
+			</tr>
+			<tr>
+				<td>Файл:</td>
+				<td><input type="file" name="cvs"/></td>
+			</tr>
+			<tr>
+				<td>Количество строк для пропуска:</td>
+				<td><input type="text" name="skip" value='6'/></td>
+			</tr>
+			<tr>
+				<td>Разделитель:</td>
+				<td><input type="text" name="split" value=';'/></td>
+			</tr>
+			<tr>
+				<td>Столбик с номером телефона:</td>
+				<td><input type="text" name="number" value='2'/></td>
+			</tr>
+			<tr>
+				<td>Продолжительность разговора:</td>
+				<td><input type="text" name="time" value='4'/></td>
+			</tr>
+			<tr>
+				<td>Цена:</td>
+				<td><input type="text" name="price" value='5'/></td>
+			</tr>
+			<tr>
+				<td>Кодировка:</td>
+				<td><input type="text" name="encodings" value='cp1251'/></td>	
+			</tr>
+			<tr>
+				<td colspan='2'><input type='submit' value='Записать'></td>
+			</tr>
+		</table>
+	</form>
+	
+	{% if internalData %}
+		<h1>Результаты загрузки</h1>
+		<table border=1>
+			{{ internalData }}
+		</table>
+	{% endif %}

@@ -1,0 +1,53 @@
+<table>
+	{% for message in messages %}
+		<tr>
+			<td>
+				<a href='/forum?path={{ message.subpath }}'>Текущее родительское сообщение</a>
+			</td>
+			<td>
+				{% if message.author %}
+	     				<b>{{ message.author.nickname }}</b> wrote:
+      				{% else %}
+       					An anonymous person wrote:
+      				{% endif %}
+			</td>
+			<td>
+      				<p>{{ message.content|escape }}</p>
+			</td>
+		</tr>
+    	{% endfor %}
+</table>
+<table>
+	{% for sub_message in sub_messages %}
+		<tr>
+			<td>
+				<a href='/forum?path={{ sub_message.subpath }}'>Наследник</a>
+			</td>
+			<td>
+      				{% if sub_message.author %}
+	        			<b>{{ sub_message.author.nickname }}</b> wrote:
+      				{% else %}
+       					An anonymous person wrote:
+      				{% endif %}
+			</td>
+			<td>
+      				<p>{{ sub_message.content|escape }}</p>
+			</td>
+		</tr>
+    	{% endfor %}
+</table>
+<form action='/forum?path={{ curr_path }}' method='post' width='100%'>
+	<table>
+		<tr>
+			<td>Заголовок:</td>
+			<td><input type='text' name='head'></td>
+		</tr>
+		<tr>
+			<td>Текст:</td>
+			<td><textarea name='content' rows='3' cols='120'></textarea></td>
+		</tr>
+		<tr>
+			<td colspan='2'><input type='submit' value='Записать'></td>
+		</tr>
+	</table>
+</form>

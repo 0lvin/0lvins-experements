@@ -1,0 +1,87 @@
+<html>
+<head>
+   <title>Sample</title>
+   <script src="http://www.google.com/jsapi?key=ABQIAAAA_f9B756vlv65wEMrkCJB7xTNVmSYkloxEyhrLnZqhA436UFrOBRziELKEiWuxa8xZBDkItSTOt_PeQ"> </script>
+   <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"></script>
+   <script type="text/javascript" src="kml_lib.js"></script>
+   <script type="text/javascript">
+      var ge;
+      google.load("earth", "1");
+
+      function init() {
+         google.earth.createInstance('map', initCB, failureCB);
+      }
+
+      function initCB(instance) {
+         ge = instance;
+         ge.getWindow().setVisibility(true);
+      }
+
+      function failureCB(errorCode) {
+      }
+
+      google.setOnLoadCallback(init);
+
+      var startDate;
+
+    function start() {
+        $.ajax({
+            type: "GET",
+            url: "doc.kml",
+            dataType: "xml",
+            success: function (gxml) {
+                var parse_result = kml_parse_internal(gxml);
+                startDate = new Date();
+                for (var name in parse_result) {
+                        for(var m in parse_result[name])
+                        {
+                            if (m == 'color' || m == 'opacity')
+                                continue;
+
+                            if (parse_result[name][m]['type'] == 'poligon') {
+                                // Create the placemark.
+                                var polygonPlacemark = ge.createPlacemark('');
+                                // Create the polygon.
+                                var polygon = ge.createPolygon('');
+                                polygon.setAltitudeMode(ge.ALTITUDE_RELATIVE_TO_GROUND);
+                                polygonPlacemark.setGeometry(polygon);
+
+                                // Add points for the outer shape.
+                                var outer = ge.createLinearRing('');
+                                outer.setAltitudeMode(ge.ALTITUDE_RELATIVE_TO_GROUND);
+                                var inital_points = parse_result[name][m]['points'];
+                                for(var j=0; j<inital_points.length; j++){
+                                    outer.getCoordinates().pushLatLngAlt(inital_points[j].lat, inital_points[j].lng, 700);
+                                }
+                                polygon.setOuterBoundary(outer);
+
+                                //Create a style and set width and color of line
+                                polygonPlacemark.setStyleSelector(ge.createStyle(''));
+                                var lineStyle = polygonPlacemark.getStyleSelector().getLineStyle();
+                                lineStyle.setWidth(1);
+                                lineStyle.getColor().set('9900ffff');
+
+                                // Add the placemark to Earth.
+                                ge.getFeatures().appendChild(polygonPlacemark);
+                            }
+                        }
+                }
+            }
+        });
+    };
+
+    function stop() {
+        alert((new Date() - startDate));
+    }
+
+   </script>
+
+</head>
+<body>
+  <div id="map" style="width:1200px; height:600px"></div>
+  <div>
+      <div onclick='start();' style='float:left; margin:10px;'>Start</div>
+      <div onclick='stop();' style='float:left; margin:10px;'>Stop</div>
+  </div>
+</body>
+</html>
