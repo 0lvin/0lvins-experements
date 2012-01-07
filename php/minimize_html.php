@@ -31,8 +31,10 @@
         if(!empty($pre[0])) {
 	    $html = str_replace(' '.$replace_code, $replace_code, $html);
 	    $html = str_replace($replace_code.' ', $replace_code, $html);
-            foreach($pre[0] as $tag)
+            foreach($pre[0] as $tag) {
+		$tag = str_replace(array('\\', '$'), array('\\\\', '\$'), $tag);
                 $html = preg_replace('!'.$replace_code.'!', $tag, $html,1);#putting back pre|code tags
+	    }
 	}
         return $html;
    }
@@ -57,6 +59,7 @@
 		} else {
 		    $packed = $tag;
 		}
+		$packed = str_replace(array('\\', '$'), array('\\\\', '\$'), $packed);
                 $html = preg_replace('!'.$replace_code.'!', $packed, $html,1);#putting back style tags
 	    }
 	}
@@ -87,6 +90,7 @@
 		} else {
 		    $packed = $tag;
 		}
+		$packed = str_replace(array('\\', '$'), array('\\\\', '\$'), $packed);
                 $html = preg_replace('!'.$replace_code.'!', $packed, $html,1);#putting back script tags
 	    }
 	}

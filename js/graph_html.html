@@ -1,0 +1,103 @@
+<html>
+    <body>
+        <style>
+            table.graph_table {
+                border-collapse: collapse;
+                font-size: 1px;
+                line-height: 1px;
+                padding: 0px;
+            }
+            table.graph_table tr {
+                border-collapse: collapse;
+                padding: 0px;
+            }
+            table.graph_table td {
+                height:1px;
+                width:1px;
+                padding: 0px;
+            }
+            table.graph_table td.red {
+                background: red;
+            }
+            table.graph_table td.blue {
+                background: blue;
+            }
+        </style>
+        <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.6.4/jquery.min.js"></script>
+        <div id='test_table'>
+        </div>
+        <script>
+            function show_graphs(id, array, height, width){
+                var max = 0;
+                var min = 0;
+                for(var i in  array) {
+                    if (array[i] > max)
+                            max = array[i];
+                    if (array[i] < min)
+                            min = array[i];
+                }
+                max ++;
+                
+                var max_min = (max - min) / height;
+                max = max / height;
+                
+                var html = '<table class="graph_table">';
+                for(var y = height; y > 0; y --) {
+                        html +='<tr>';
+                        html +='<td class="blue">&nbsp;</td>';
+                        var point_need_last = false;
+                        var size_td = -1;
+                        for(var x = 0; x < width; x ++) {
+                                var point_need = false;
+                                if (array[x] != undefined) {
+                                        var current_value = Math.round((array[x] - min) / max_min);
+                                        if (current_value == y)
+                                                point_need = true;
+                                        else {
+                                                if (array[x-1] != undefined) {
+                                                        var previous_value = Math.round((array[x-1] - min)/ max_min);
+                                                        if (array[x-1] >= array[x]) {
+                                                                if (current_value <= y && previous_value >= y)
+                                                                    point_need = true;
+                                                        }
+                                                        if (array[x-1] <= array[x]) {
+                                                                if (current_value >= y && previous_value <= y)
+                                                                    point_need = true;
+                                                        }
+                                                }
+                                        }
+                                }
+                                
+                                if (x == 0) {
+                                        point_need_last = point_need;
+                                }
+                                
+                                if (point_need_last != point_need) {
+                                        if (point_need_last)
+                                                html +=('<td class="red" colspan=' + (size_td + 1) + '>&nbsp;</td>');
+                                        else
+                                                html +=('<td colspan=' + (size_td + 1) + '>&nbsp;</td>');
+                                        point_need_last = point_need;
+                                        size_td = 0;
+                                } else {
+                                        size_td ++;
+                                }
+                        }
+                        if (point_need)
+                                html +=('<td class="red" colspan=' + (size_td + 1) + '>&nbsp;</td>');
+                        else
+                                html +=('<td colspan=' + (size_td + 1) + '>&nbsp;</td>');
+                        html +='</tr>';
+                }
+                html +='<tr>';
+                for(var x = 0; x <= width; x ++) {
+                        html +='<td class="blue">&nbsp;</td>';
+                }
+                html +='</tr>';
+                html +='</table>';
+                $('#' + id).html(html);
+        }            
+        show_graphs('test_table', [20,10,30,40,50,20,10,30,40,50,20,10,30,40,50,20,10,30,40,50,20,10,30,40,50,20,10,30,40,50,20,10,30,40,50,20,10,30,40,50,20,10,30,40,50,20,10,30,40,50,20,10,30,40,50,20,10,30,40,50], 64 , 64);
+        </script>
+    </body>   
+</html>
