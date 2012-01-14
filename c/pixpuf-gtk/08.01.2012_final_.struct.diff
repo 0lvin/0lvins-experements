@@ -1,0 +1,87 @@
+diff --git a/gdk-pixbuf/io-gif-animation.c b/gdk-pixbuf/io-gif-animation.c
+index e36f234..3ce21aa 100644
+--- a/gdk-pixbuf/io-gif-animation.c
++++ b/gdk-pixbuf/io-gif-animation.c
+@@ -256,6 +256,34 @@ gdk_pixbuf_gif_anim_iter_finalize (GObject *object)
+         G_OBJECT_CLASS (iter_parent_class)->finalize (object);
+ }
+ 
++static void 
++gdk_pixbuf_gif_anim_iter_clean_previous (GList *initial) 
++{
++        GList *tmp = initial;
++        while (tmp != NULL) {
++                GdkPixbufFrame *curr_frame = tmp->data;
++                /* not exist composite frame for current */
++                if (!curr_frame->composited || curr_frame->need_recomposite)
++                        return;
++                tmp = tmp->prev;
++                /* previous not exist*/
++                if (tmp == NULL)
++                        return;
++                GdkPixbufFrame *prev_frame = tmp->data;
++                /* not exist composite frame for previous */
++                if(!prev_frame->composited || prev_frame->need_recomposite)
++                        return;
++                /*
++                 * g_print("composited h*w: %d*%d\n", 
++                 *          gdk_pixbuf_get_height(prev_frame->composited), 
++                 *          gdk_pixbuf_get_width(prev_frame->composited));
++                 */
++                 /* delete cached pixbuf */
++                 g_object_unref (prev_frame->composited);
++                 prev_frame->composited = NULL;
++        }
++}
++
+ static gboolean
+ gdk_pixbuf_gif_anim_iter_advance (GdkPixbufAnimationIter *anim_iter,
+                                   const GTimeVal         *current_time)
+@@ -320,6 +348,9 @@ gdk_pixbuf_gif_anim_iter_advance (GdkPixbufAnimationIter *anim_iter,
+                         break;
+                 
+                 tmp = tmp->next;
++                if (tmp) {
++                        gdk_pixbuf_gif_anim_iter_clean_previous(tmp);
++                }
+         }
+ 
+         old = iter->current_frame;
+@@ -461,13 +492,15 @@ gdk_pixbuf_gif_anim_frame_composite (GdkPixbufGifAnim *gif_anim,
+                                  */
+                                 
+                                 if (prev_frame->action == GDK_PIXBUF_FRAME_RETAIN) {
+-                                        f->composited = gdk_pixbuf_copy (prev_frame->composited);
++                                        f->composited = prev_frame->composited;
++                                        prev_frame->composited = NULL;
+ 
+                                         if (f->composited == NULL)
+                                                 return;
+                                         
+                                 } else if (prev_frame->action == GDK_PIXBUF_FRAME_DISPOSE) {
+-                                        f->composited = gdk_pixbuf_copy (prev_frame->composited);
++                                        f->composited = prev_frame->composited;
++                                        prev_frame->composited = NULL;
+ 
+                                         if (f->composited == NULL)
+                                                 return;
+@@ -493,7 +526,8 @@ gdk_pixbuf_gif_anim_frame_composite (GdkPixbufGifAnim *gif_anim,
+                                                 g_object_unref (area);
+                                         }                                        
+                                 } else if (prev_frame->action == GDK_PIXBUF_FRAME_REVERT) {
+-                                        f->composited = gdk_pixbuf_copy (prev_frame->composited);
++                                        f->composited = prev_frame->composited;
++                                        prev_frame->composited = NULL;
+ 
+                                         if (f->composited == NULL)
+                                                 return;
+@@ -560,6 +594,9 @@ gdk_pixbuf_gif_anim_frame_composite (GdkPixbufGifAnim *gif_anim,
+                                 break;
+                         
+                         tmp = tmp->next;
++                        if (tmp) {
++                                 gdk_pixbuf_gif_anim_iter_clean_previous(tmp);
++                        }
+                 }
+         }
+ }
