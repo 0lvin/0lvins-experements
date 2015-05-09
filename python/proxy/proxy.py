@@ -35,6 +35,8 @@ def get_connection_info(header):
         elif header_line.lower().find("proxy-connection:") == 0:
             keepalive = header_line[len("proxy-connection:"):]
             result_header += ["Connection:" + keepalive]
+        elif header_line.lower().find("connection:") == 0:
+            keepalive = header_line[len("connection:"):]
         elif header_line.lower().find("content-length:") == 0:
             result_header += [header_line]
             size = int(header_line[len("content-length:"):].strip())
@@ -71,7 +73,6 @@ def download(conn, size=None, stop=None):
         data = None
         try:
             data = conn.recv(1024)
-            print "download=", len(data)
         except socket.error as e:
             print e
         if not data:
@@ -134,6 +135,10 @@ def get_response(s, conn, close):
                     result_headers += [header]
         if not size and close:
             result_headers += ["Transfer-Encoding: chunked"]
+        elif not close:
+            result_headers += ["Connection: Keep-Alive"]
+        else:
+            result_headers += ["Connection: Close"]
 
         print "<---\r\n" + "\r\n".join(result_headers)
         server_buffer = server_buffer[header_found + 4:]
@@ -158,19 +163,22 @@ def get_response(s, conn, close):
                     print "hex:", hex_size
                 else:
                     server_buffer += download(s, size=10)
-            #conn.sendall("0" + "\r\n")
         else:
             # exist content length
             if size:
-                if size > len(server_buffer):
-                    server_buffer += download(s, size=size-len(server_buffer))
-                print "send", len(server_buffer)
-                conn.sendall(server_buffer)
+                current_pos = 0
+                if (len(server_buffer)):
+                    current_pos = len(server_buffer)
+                    conn.sendall(server_buffer)
+                if size > current_pos:
+                    curent_buffer = download(s, size=size-current_pos)
+                    conn.sendall(curent_buffer)
+                    current_pos += len(curent_buffer)
+                    server_buffer += curent_buffer
             else:
                 #chunck emulate
                 server_buffer += download(s)
                 conn.sendall(hex(len(server_buffer)) + "\r\n" + server_buffer)
-                print hex(len(server_buffer)) + "\r\n" + server_buffer
                 #close stream
                 conn.sendall("\r\n0\r\n")
     print close
@@ -233,6 +241,7 @@ def connection(conn):
                         s.sendall(client_buffer)
                         client_buffer = ""
                 if not get_response(s, conn, not connection_info["keep-alive"]):
+                    print "connection clossed"
                     s.close()
                     connectio_pool[connection_info['host'] + ":" + str(connection_info['port'])] = None
                 else:
@@ -252,10 +261,10 @@ PORT = 8080
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 s.bind((HOST, PORT))
+print "Listen %s:%s" % (HOST, PORT)
 s.listen(1)
 conn, addr = s.accept()
 connection(conn)
-exit(0)
 while 1:
     conn, addr = s.accept()
     print "connected", addr
