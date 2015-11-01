@@ -151,7 +151,10 @@ struct tag_als_kadc {
 	__u32 kadc;
 };
 
-/* configuration tags specific to msm */
+/*
+ * configuration tags specific to msm
+ * (0x4d534D == MSM)
+ */
 #define ATAG_SMI		0x4d534D71
 #define ATAG_HWID		0x4d534D72
 #define ATAG_SKUID		0x4d534D73
