@@ -83,20 +83,7 @@ int parse_atags(struct tag *tag) {
 	    /*case ATAG_CSA:
 	    case ATAG_DDR_ID:*/
 	    case ATAG_ENGINEERID: {
-		    int find = 0;
-		    unsigned engineerid;
-
-		    struct tag *t = (struct tag *)tag;
-		    for (; t->hdr.size; t = tag_next(t)) {
-			    if (t->hdr.tag == ATAG_ENGINEERID) {
-				    find = 1;
-				    break;
-			    }
-		    }
-
-		    if (find)
-			    engineerid = t->u.revision.rev;
-		    printf("    engineerid = 0x%x\n", engineerid);
+		    printf("    engineerid = 0x%x\n", tag->u.revision.rev);
 		};
 		break;
 	    /*case ATAG_ETHERNET:
@@ -109,55 +96,35 @@ int parse_atags(struct tag *tag) {
 		printf("    paneltype = 0x%x\n", tag->u.revision.rev);
 		break;
 	    case ATAG_HTC_PCBID: { /* also can be ATAG_VIDEOLFB */
-		    int pcbid = 0, find = 0;
+		    int pcbid = 0;
 		    unsigned g_htc_pcbid;
-		    struct tag *t = (struct tag *)tag;
 
 		    /* parse ATAG_VIDEOLFB */
-		    if (t->hdr.size >= sizeof(struct tag_videolfb)) {
-			printf("    lfb_width=0x%x\n", t->u.videolfb.lfb_width);
-			printf("    lfb_height=0x%x\n", t->u.videolfb.lfb_height);
-			printf("    lfb_depth=0x%x\n", t->u.videolfb.lfb_depth);
-			printf("    lfb_linelength=0x%x\n", t->u.videolfb.lfb_linelength);
-			printf("    lfb_base=0x%x\n", t->u.videolfb.lfb_base);
-			printf("    lfb_size=0x%x\n", t->u.videolfb.lfb_size);
-			printf("    red_size=0x%x\n", t->u.videolfb.red_size);
-			printf("    red_pos=0x%x\n", t->u.videolfb.red_pos);
-			printf("    green_size=0x%x\n", t->u.videolfb.green_size);
-			printf("    green_pos=0x%x\n", t->u.videolfb.green_pos);
-			printf("    blue_size=0x%x\n", t->u.videolfb.blue_size);
-			printf("    blue_pos=0x%x\n", t->u.videolfb.blue_pos);
-			printf("    rsvd_size=0x%x\n", t->u.videolfb.rsvd_size);
-			printf("    rsvd_pos=0x%x\n", t->u.videolfb.rsvd_pos);
-		    }
-
-		    for (; t->hdr.size; t = tag_next(t)) {
-			if (t->hdr.tag == ATAG_HTC_PCBID) {
-			    find = 1;
-			    break;
-			}
-		    }
-
-		    if (find) {
-			pcbid = t->u.revision.rev;
+		    if (tag->hdr.size >= sizeof(struct tag_videolfb)) {
+			printf("    lfb_width=0x%x\n", tag->u.videolfb.lfb_width);
+			printf("    lfb_height=0x%x\n", tag->u.videolfb.lfb_height);
+			printf("    lfb_depth=0x%x\n", tag->u.videolfb.lfb_depth);
+			printf("    lfb_linelength=0x%x\n", tag->u.videolfb.lfb_linelength);
+			printf("    lfb_base=0x%x\n", tag->u.videolfb.lfb_base);
+			printf("    lfb_size=0x%x\n", tag->u.videolfb.lfb_size);
+			printf("    red_size=0x%x\n", tag->u.videolfb.red_size);
+			printf("    red_pos=0x%x\n", tag->u.videolfb.red_pos);
+			printf("    green_size=0x%x\n", tag->u.videolfb.green_size);
+			printf("    green_pos=0x%x\n", tag->u.videolfb.green_pos);
+			printf("    blue_size=0x%x\n", tag->u.videolfb.blue_size);
+			printf("    blue_pos=0x%x\n", tag->u.videolfb.blue_pos);
+			printf("    rsvd_size=0x%x\n", tag->u.videolfb.rsvd_size);
+			printf("    rsvd_pos=0x%x\n", tag->u.videolfb.rsvd_pos);
+		    } else {
+			pcbid = tag->u.revision.rev;
 			g_htc_pcbid = (pcbid & (0xFF000000)) >> 24;
+			printf("    pcbid = 0x%x (0x%x)\n", pcbid, g_htc_pcbid);
 		    }
-		    printf("    pcbid = 0x%x (0x%x)\n", pcbid, g_htc_pcbid);
 		};
 		break;
 	    case ATAG_HWID: {
 		    int hwid = 0, find = 0;
-		    struct tag *t = (struct tag *)tag;
-
-		    for (; t->hdr.size; t = tag_next(t)) {
-			if (t->hdr.tag == ATAG_HWID) {
-			    find = 1;
-			    break;
-			}
-		    }
-
-		    if (find)
-			hwid = t->u.revision.rev;
+		    hwid = tag->u.revision.rev;
 		    printf("    hwid = 0x%x\n", hwid);
 		};
 		break;
@@ -224,19 +191,7 @@ int parse_atags(struct tag *tag) {
 		break;
 	    case ATAG_PCBID: {
 		    unsigned char pcbid = PROJECT_PHASE_INVALID;
-		    int find = 0;
-		    struct tag *t = (struct tag *)tag;
-
-		    for (; t->hdr.size; t = tag_next(t)) {
-			if (t->hdr.tag == ATAG_PCBID) {
-				find = 1;
-				break;
-			}
-		    }
-
-		    if (find) {
-			    pcbid = t->u.revision.rev;
-		    }
+		    pcbid = tag->u.revision.rev;
 		    printf("    pcbid = %s (0x%x)\n", __pcbid_to_name(pcbid), pcbid);
 		};
 		break;
@@ -271,34 +226,11 @@ int parse_atags(struct tag *tag) {
 	    case ATAG_SECURITY:
 	    case ATAG_SERIAL:*/
 	    case ATAG_SKUID: {
-		    int skuid = 0, find = 0;
-		    struct tag *t = (struct tag *)tag;
-
-		    for (; t->hdr.size; t = tag_next(t)) {
-			    if (t->hdr.tag == ATAG_SKUID) {
-				    find = 1;
-				    break;
-			    }
-		    }
-
-		    if (find)
-			    skuid = t->u.revision.rev;
-		    printf("    skuid = 0x%x\n", skuid);
+		    printf("    skuid = 0x%x\n", tag->u.revision.rev);
 		};
 		break;
 	    case ATAG_SMI: {
-		    int find = 0;
-		    struct tag *t = (struct tag *)tag;
-		    for (; t->hdr.size; t = tag_next(t)) {
-			if (t->hdr.tag == ATAG_SMI) {
-			    find = 1;
-			    break;
-			}
-		    }
-		    if (!find)
-			printf("    no smi\n");
-		    else
-			printf("    smi size = %d\n", t->u.mem.size);
+		    printf("    smi size = %d\n", tag->u.mem.size);
 		};
 		break;
 	    /*case ATAG_VIDEOTEXT:
