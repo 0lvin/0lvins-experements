@@ -48,121 +48,137 @@ char* __pcbid_to_name(signed int id)
 	    return "<Latest HW phase>";
     }
 }
-int parse_atags(struct tag *tag) {
-    if (tag->hdr.tag != ATAG_CORE) {
+
+void dump_mem(unsigned char * dptr, size_t size) {
+    size_t i;
+    for (i = 0; i < size; i++) {
+	printf("0x%02x ", dptr[i]);
+	if ((i % 16) == 15)
+	    printf("\n      ");
+    };
+    printf("\n");
+}
+
+int parse_atags(struct tag *orig_tag, size_t max_size) {
+    struct tag *curr_tag = orig_tag;
+    if (curr_tag->hdr.tag != ATAG_CORE) {
 	printf("    No ATAGs?\n");
 	return 0;
     }
 
-    for (; tag->hdr.size; tag = tag_next(tag)) {
-	printf("  tag:0x%x[0x%x]\n", tag->hdr.tag, tag->hdr.size);
-	switch(tag->hdr.tag) {
+    for (; curr_tag->hdr.size; curr_tag = tag_next(curr_tag)) {
+	if (((char*)tag_next(curr_tag) - (char*)orig_tag) > max_size) {
+	    printf("We lose tail for ATAGs?\n");
+	    return 0;
+	}
+	size_t real_size =  (char*)tag_next(curr_tag) - (char *)(&curr_tag->u);
+	printf("  tag:0x%x[0x%lx]\n", curr_tag->hdr.tag, real_size);
+	switch(curr_tag->hdr.tag) {
 	     /*case ATAG_ACORN:
-	     case ATAG_AKM8976:
+	     case ATAG_AKM8976:*/
 	     case ATAG_ALS:
+		printf("    als calibration = 0x%x\n", curr_tag->u.als_kadc.kadc);
+		break;
 	     case ATAG_BLUETOOTH:
-	     case ATAG_BOARDINFO:
+		printf("    bluetooth mac:");
+		dump_mem((unsigned char *)(&curr_tag->u), real_size);
+		break;
+	     /*case ATAG_BOARDINFO:
 	     case ATAG_CAM:
 	     case ATAG_CLOCK:*/
 	     case ATAG_CMDLINE:
 		printf(
 			"    command line: %s\n",
-			tag->u.cmdline.cmdline
+			curr_tag->u.cmdline.cmdline
 		);
 		break;
 	     case ATAG_CORE:
-		if (tag->hdr.size > 2) {
+		if (curr_tag->hdr.size > 2)
 		    printf(
 			"    Mount device %x:%x as %s\n",
-			(tag->u.core.rootdev >> 8) & 0xff,
-			tag->u.core.rootdev & 0xff,
-			(tag->u.core.flags & 1) == 0 ? "rw" : "ro"
+			(curr_tag->u.core.rootdev >> 8) & 0xff,
+			curr_tag->u.core.rootdev & 0xff,
+			(curr_tag->u.core.flags & 1) == 0 ? "rw" : "ro"
 		    );
-		};
 		break;
 	    /*case ATAG_CSA:
 	    case ATAG_DDR_ID:*/
-	    case ATAG_ENGINEERID: {
-		    printf("    engineerid = 0x%x\n", tag->u.revision.rev);
-		};
+	    case ATAG_ENGINEERID:
+		printf("    engineerid = 0x%x\n", curr_tag->u.revision.rev);
 		break;
 	    /*case ATAG_ETHERNET:
-	    case ATAG_GRYO_GSENSOR:
-	    case ATAG_GS:*/
+	    case ATAG_GRYO_GSENSOR:*/
+	    case ATAG_GS:
+		printf("    gs_kvalue = 0x%x\n", curr_tag->u.revision.rev);
+		break;
 	    case ATAG_FRAME_BUFFER_ID:
-		printf("    fb addr= 0x%x, size=0x%0x\n", tag->u.mem.start, tag->u.mem.size);
+		printf("    fb addr= 0x%x, size=0x%0x\n", curr_tag->u.mem.start, curr_tag->u.mem.size);
 		break;
 	    case ATAG_HERO_PANEL_TYPE:
-		printf("    paneltype = 0x%x\n", tag->u.revision.rev);
+		printf("    paneltype = 0x%x\n", curr_tag->u.revision.rev);
 		break;
 	    case ATAG_HTC_PCBID: { /* also can be ATAG_VIDEOLFB */
 		    int pcbid = 0;
 		    unsigned g_htc_pcbid;
 
 		    /* parse ATAG_VIDEOLFB */
-		    if (tag->hdr.size >= sizeof(struct tag_videolfb)) {
-			printf("    lfb_width=0x%x\n", tag->u.videolfb.lfb_width);
-			printf("    lfb_height=0x%x\n", tag->u.videolfb.lfb_height);
-			printf("    lfb_depth=0x%x\n", tag->u.videolfb.lfb_depth);
-			printf("    lfb_linelength=0x%x\n", tag->u.videolfb.lfb_linelength);
-			printf("    lfb_base=0x%x\n", tag->u.videolfb.lfb_base);
-			printf("    lfb_size=0x%x\n", tag->u.videolfb.lfb_size);
-			printf("    red_size=0x%x\n", tag->u.videolfb.red_size);
-			printf("    red_pos=0x%x\n", tag->u.videolfb.red_pos);
-			printf("    green_size=0x%x\n", tag->u.videolfb.green_size);
-			printf("    green_pos=0x%x\n", tag->u.videolfb.green_pos);
-			printf("    blue_size=0x%x\n", tag->u.videolfb.blue_size);
-			printf("    blue_pos=0x%x\n", tag->u.videolfb.blue_pos);
-			printf("    rsvd_size=0x%x\n", tag->u.videolfb.rsvd_size);
-			printf("    rsvd_pos=0x%x\n", tag->u.videolfb.rsvd_pos);
+		    if (real_size >= sizeof(struct tag_videolfb)) {
+			printf("    lfb_width=0x%x\n", curr_tag->u.videolfb.lfb_width);
+			printf("    lfb_height=0x%x\n", curr_tag->u.videolfb.lfb_height);
+			printf("    lfb_depth=0x%x\n", curr_tag->u.videolfb.lfb_depth);
+			printf("    lfb_linelength=0x%x\n", curr_tag->u.videolfb.lfb_linelength);
+			printf("    lfb_base=0x%x\n", curr_tag->u.videolfb.lfb_base);
+			printf("    lfb_size=0x%x\n", curr_tag->u.videolfb.lfb_size);
+			printf("    red_size=0x%x\n", curr_tag->u.videolfb.red_size);
+			printf("    red_pos=0x%x\n", curr_tag->u.videolfb.red_pos);
+			printf("    green_size=0x%x\n", curr_tag->u.videolfb.green_size);
+			printf("    green_pos=0x%x\n", curr_tag->u.videolfb.green_pos);
+			printf("    blue_size=0x%x\n", curr_tag->u.videolfb.blue_size);
+			printf("    blue_pos=0x%x\n", curr_tag->u.videolfb.blue_pos);
+			printf("    rsvd_size=0x%x\n", curr_tag->u.videolfb.rsvd_size);
+			printf("    rsvd_pos=0x%x\n", curr_tag->u.videolfb.rsvd_pos);
 		    } else {
-			pcbid = tag->u.revision.rev;
+			pcbid = curr_tag->u.revision.rev;
 			g_htc_pcbid = (pcbid & (0xFF000000)) >> 24;
 			printf("    pcbid = 0x%x (0x%x)\n", pcbid, g_htc_pcbid);
 		    }
 		};
 		break;
-	    case ATAG_HWID: {
-		    int hwid = 0, find = 0;
-		    hwid = tag->u.revision.rev;
-		    printf("    hwid = 0x%x\n", hwid);
-		};
+	    case ATAG_HWID:
+		printf("    hwid = 0x%x\n", curr_tag->u.revision.rev);
 		break;
 	    case ATAG_INITRD:
 		printf(
 		    "    deprecated initrd found, start from virtual %x [%x]\n",
-		    tag->u.initrd.start,
-		    tag->u.initrd.size
+		    curr_tag->u.initrd.start,
+		    curr_tag->u.initrd.size
 		);
 		break;
 	    case ATAG_INITRD2:
 		printf(
 		    "    initrd started at %x[%x]\n",
-		    tag->u.initrd.start,
-		    tag->u.initrd.size
+		    curr_tag->u.initrd.start,
+		    curr_tag->u.initrd.size
 		);
 		break;
 	    /*case ATAG_MEM:
-	    case ATAG_MEMCLK:
+	    case ATAG_MEMCLK:*/
 	    case ATAG_MEMSIZE:
-	    case ATAG_MFG_GPIO_TABLE:*/
-	    case ATAG_MSM_AWB_CAL: {
-		    int i;
-		    unsigned char *dptr = (unsigned char *)(&tag->u);
-		    printf("    AWB_CAL size = 0x%x\n      ", tag->hdr.size);
-		    for (i = 0; i < tag->hdr.size ; i++) {
-			printf("0x%02x ", *dptr++);
-			if ((i % 16) == 15)
-			    printf("\n      ");
-		    };
-		    printf("\n");
-		};
+		printf("    memsize: %d\n", curr_tag->u.revision.rev);
+		break;
+	    case ATAG_MFG_GPIO_TABLE:
+		printf("    GPIO_TABLE size = 0x%x\n      ", curr_tag->hdr.size);
+		dump_mem((unsigned char *)(&curr_tag->u), real_size);
+		break;
+	    case ATAG_MSM_AWB_CAL:
+		printf("    AWB_CAL size = 0x%x\n      ", curr_tag->hdr.size);
+		dump_mem((unsigned char *)(&curr_tag->u), real_size);
 		break;
 	    case ATAG_MSM_PARTITION: {
-		    struct msm_ptbl_entry *entry = (void *) &tag->u;
+		    struct msm_ptbl_entry *entry = (void *) &curr_tag->u;
 		    unsigned count, n;
 		    char name[16];
-		    count = (tag->hdr.size - 2) /
+		    count = (curr_tag->hdr.size - 2) /
 			    (sizeof(struct msm_ptbl_entry) / sizeof(__u32));
 		    printf("    partitions:\n");
 		    for (n = 0; n < count; n++) {
@@ -173,75 +189,65 @@ int parse_atags(struct tag *tag) {
 		    }
 		};
 		break;
-	    case ATAG_MSM_WIFI: {
-		    int i;
-		    unsigned char *dptr = (unsigned char *)(&tag->u);
-		    printf("    WiFi Data size = 0x%x\n      ", tag->hdr.size);
-		    for (i = 0; i < tag->hdr.size ; i++) {
-			printf("0x%02x ", *dptr++);
-			if ((i % 16) == 15)
-			    printf("\n      ");
-		    };
-		    printf("\n");
-		};
+	    case ATAG_MSM_WIFI:
+		printf("    WiFi Data size = 0x%x\n      ", curr_tag->hdr.size);
+		dump_mem((unsigned char *)(&curr_tag->u), real_size);
 		break;
-	    /*case ATAG_PS:*/
+	    case ATAG_PS:
+		printf("    ps_low = 0x%x, ps_high = 0x%x\n",
+		    curr_tag->u.serialnr.low, curr_tag->u.serialnr.high);
+		break;
 	    case ATAG_PS_TYPE:
-		printf("    PS type = 0x%x\n", tag->u.revision.rev);
+		printf("    PS type = 0x%x\n", curr_tag->u.revision.rev);
 		break;
 	    case ATAG_PCBID: {
 		    unsigned char pcbid = PROJECT_PHASE_INVALID;
-		    pcbid = tag->u.revision.rev;
+		    pcbid = curr_tag->u.revision.rev;
 		    printf("    pcbid = %s (0x%x)\n", __pcbid_to_name(pcbid), pcbid);
 		};
 		break;
 	    case ATAG_TP_TYPE:
-		printf("    touchpad type = 0x%x\n", tag->u.revision.rev);
+		printf("    touchpad type = 0x%x\n", curr_tag->u.revision.rev);
 		break;
 	    /*case ATAG_RAMDISK:
 	    case ATAG_RDIMG:*/
 	    case ATAG_REVISION:
-		printf("    system revision = 0x%x\n", tag->u.revision.rev);
+		printf("    system revision = 0x%x\n", curr_tag->u.revision.rev);
 		break;
 	    case ATAG_MICROP_VERSION:
-		if (tag->hdr.size>=sizeof(struct tag_microp_version)) {
+		if (real_size >= sizeof(struct tag_microp_version)) {
 		    printf(
-			"    microo version = %c%c%c\n",
-			tag->u.microp_version.ver[0],
-			tag->u.microp_version.ver[1],
-			tag->u.microp_version.ver[2]
+			"    microp version = %c%c%c\n",
+			curr_tag->u.microp_version.ver[0],
+			curr_tag->u.microp_version.ver[1],
+			curr_tag->u.microp_version.ver[2]
 		    );
 		} else {
 		    /* looks as ATAG_MEM_RESERVED */
-		    printf("    mem reserved: 0x");
-		    int i;
-		    unsigned char *dptr = (unsigned char *)(&tag->u);
-		    for (i = 0; i < tag->hdr.size ; i++) {
-			printf("%02x", *dptr++);
-		    };
-		    printf("\n");
+		    printf("    mem reserved: ");
+		    dump_mem((unsigned char *)(&curr_tag->u), real_size);
 		}
 		break;
 	    /*case ATAG_RSVD_MEM:
 	    case ATAG_SECURITY:
 	    case ATAG_SERIAL:*/
 	    case ATAG_SKUID: {
-		    printf("    skuid = 0x%x\n", tag->u.revision.rev);
+		    printf("    skuid = 0x%x\n", curr_tag->u.revision.rev);
 		};
 		break;
 	    case ATAG_SMI: {
-		    printf("    smi size = %d\n", tag->u.mem.size);
+		    printf("    smi size = %d\n", curr_tag->u.mem.size);
 		};
 		break;
 	    /*case ATAG_VIDEOTEXT:
 	    case ATAG_WS:*/
 	    default:
-		printf("    Unknow tag %x[%d]\n", tag->hdr.tag, tag->hdr.size);
+		printf("    Unknow tag %x[%d]\n", curr_tag->hdr.tag, curr_tag->hdr.size);
 
 	};
     }
 
-    if (tag->hdr.tag != ATAG_NONE) {
+    if (curr_tag->hdr.tag != ATAG_NONE) {
 	printf("    atags file broken\n");
     }
     return 0;
@@ -279,7 +285,7 @@ int parse_atag_file(char* name) {
     }
     file_size = read_done;
 
-    return parse_atags((struct tag *)buffer);
+    return parse_atags((struct tag *)buffer, read_done);
 }
 
 int main(int argc, char **argv) {
