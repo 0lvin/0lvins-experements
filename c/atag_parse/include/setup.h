@@ -183,6 +183,7 @@ struct tag_als_kadc {
 #define ATAG_PS				0x5441001c
 #define ATAG_GS				0x5441001d
 #define ATAG_MEMSIZE		0x5441001e
+#define ATAG_TP				0x41387898
 
 struct tag_microp_version {
 	char ver[4];

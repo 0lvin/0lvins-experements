@@ -180,7 +180,9 @@ int parse_atags(struct tag *orig_tag, size_t max_size) {
 		    char name[16];
 		    count = (curr_tag->hdr.size - 2) /
 			    (sizeof(struct msm_ptbl_entry) / sizeof(__u32));
-		    printf("    partitions:\n");
+		    printf("    Binary partitions:\n      ");
+		    dump_mem((unsigned char *)(&curr_tag->u), real_size);
+		    printf("    Parsed partitions:\n");
 		    for (n = 0; n < count; n++) {
 			    memcpy(name, entry->name, 15);
 			    name[15] = 0;
@@ -200,11 +202,14 @@ int parse_atags(struct tag *orig_tag, size_t max_size) {
 	    case ATAG_PS_TYPE:
 		printf("    PS type = 0x%x\n", curr_tag->u.revision.rev);
 		break;
-	    case ATAG_PCBID: {
-		    unsigned char pcbid = PROJECT_PHASE_INVALID;
-		    pcbid = curr_tag->u.revision.rev;
-		    printf("    pcbid = %s (0x%x)\n", __pcbid_to_name(pcbid), pcbid);
-		};
+	    case ATAG_PCBID:
+		printf("    pcbid = %s (0x%x)\n",
+		    __pcbid_to_name(curr_tag->u.revision.rev),
+		    curr_tag->u.revision.rev);
+		break;
+	    case ATAG_TP:
+		printf("    TP size = 0x%x\n      ", curr_tag->hdr.size);
+		dump_mem((unsigned char *)(&curr_tag->u), real_size);
 		break;
 	    case ATAG_TP_TYPE:
 		printf("    touchpad type = 0x%x\n", curr_tag->u.revision.rev);
