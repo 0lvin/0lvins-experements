@@ -218,6 +218,8 @@ int parse_atags(struct tag *orig_tag, size_t max_size) {
 	    case ATAG_RDIMG:*/
 	    case ATAG_REVISION:
 		printf("    system revision = 0x%x\n", curr_tag->u.revision.rev);
+		if (curr_tag->hdr.size > 3)
+		    printf("    system revision2 = 0x%x\n", curr_tag->u.revision.rev2);
 		break;
 	    case ATAG_MICROP_VERSION:
 		if (real_size >= sizeof(struct tag_microp_version)) {
