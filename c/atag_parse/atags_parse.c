@@ -72,20 +72,32 @@ int parse_atags(struct tag *orig_tag, size_t max_size) {
 	    return 0;
 	}
 	size_t real_size =  (char*)tag_next(curr_tag) - (char *)(&curr_tag->u);
-	printf("  tag:0x%x[0x%lx]\n", curr_tag->hdr.tag, real_size);
 	switch(curr_tag->hdr.tag) {
 	     /*case ATAG_ACORN:
 	     case ATAG_AKM8976:*/
 	     case ATAG_ALS:
 		printf("    als calibration = 0x%x\n", curr_tag->u.als_kadc.kadc);
 		break;
+	    case ATAG_BATT_DATA:
+		printf("    batt_data: magic_num=%x, soc=%d, "
+			"ocv_uv=%x, cc_uv=%x, stored_time=%d\n",
+			curr_tag->u.batt_data.magic_num, curr_tag->u.batt_data.soc,
+			curr_tag->u.batt_data.ocv, curr_tag->u.batt_data.cc,
+			curr_tag->u.batt_data.currtime);
+		break;
+	    case ATAG_BLDR_LOG:
+		printf("    bldr log = 0x%x[0x%x]\n",
+		    curr_tag->u.bldr_log.addr, curr_tag->u.bldr_log.size);
+		break;
 	     case ATAG_BLUETOOTH:
 		printf("    bluetooth mac:");
 		dump_mem((unsigned char *)(&curr_tag->u), real_size);
 		break;
-	     /*case ATAG_BOARDINFO:
+	     /*case ATAG_BOARDINFO:*/
 	     case ATAG_CAM:
-	     case ATAG_CLOCK:*/
+		printf("    cam_size = 0x%x\n", curr_tag->u.revision.rev);
+		break;
+	     /*case ATAG_CLOCK:*/
 	     case ATAG_CMDLINE:
 		printf(
 			"    command line: %s\n",
@@ -100,14 +112,25 @@ int parse_atags(struct tag *orig_tag, size_t max_size) {
 			curr_tag->u.core.rootdev & 0xff,
 			(curr_tag->u.core.flags & 1) == 0 ? "rw" : "ro"
 		    );
+		else
+		    printf("    Atags begin.\n");
 		break;
-	    /*case ATAG_CSA:
-	    case ATAG_DDR_ID:*/
+	    case ATAG_CSA: {
+		__u32 *ptr = (unsigned int *)&curr_tag->u;
+			printf(
+			"    csa_kvalue1 = 0x%x, csa_kvalue2 = 0x%x, "
+			    "csa_kvalue3 = 0x%x\n", ptr[0], ptr[1], ptr[2]);
+		};
+		break;
+	    /*case ATAG_DDR_ID:*/
 	    case ATAG_ENGINEERID:
 		printf("    engineerid = 0x%x\n", curr_tag->u.revision.rev);
 		break;
-	    /*case ATAG_ETHERNET:
-	    case ATAG_GRYO_GSENSOR:*/
+	    /*case ATAG_ETHERNET:*/
+	    case ATAG_GRYO_GSENSOR:
+		printf("    gyro_gs size = 0x%x\n      ", curr_tag->hdr.size);
+		dump_mem((unsigned char *)(&curr_tag->u), real_size);
+		break;
 	    case ATAG_GS:
 		printf("    gs_kvalue = 0x%x\n", curr_tag->u.revision.rev);
 		break;
@@ -242,15 +265,20 @@ int parse_atags(struct tag *orig_tag, size_t max_size) {
 		    printf("    skuid = 0x%x\n", curr_tag->u.revision.rev);
 		};
 		break;
-	    case ATAG_SMI: {
-		    printf("    smi size = %d\n", curr_tag->u.mem.size);
-		};
+	    case ATAG_SMI:
+		printf("    smi size = %d\n", curr_tag->u.mem.size);
 		break;
-	    /*case ATAG_VIDEOTEXT:
-	    case ATAG_WS:*/
+	    /*case ATAG_VIDEOTEXT:*/
+	    case ATAG_LAST_BLDR_LOG:
+		printf("    last bldr log = 0x%x[0x%x]\n",
+		    curr_tag->u.last_bldr_log.addr, curr_tag->u.last_bldr_log.size);
+		break;
+	    case ATAG_WS:
+		printf("    ws calibration = 0x%x\n", curr_tag->u.als_kadc.kadc);
+		break;
 	    default:
-		printf("    Unknow tag %x[%d]\n", curr_tag->hdr.tag, curr_tag->hdr.size);
-
+		printf("    Unknow tag: 0x%x[0x%lx/0x%x]\n",
+		    curr_tag->hdr.tag, real_size, curr_tag->hdr.size);
 	};
     }
 

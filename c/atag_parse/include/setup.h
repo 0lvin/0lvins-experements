@@ -178,12 +178,37 @@ struct tag_als_kadc {
 #define ATAG_MSM_AWB_CAL	0x59504550
  /* MSM WiFi */
 #define ATAG_MSM_WIFI		0x57494649
-#define ATAG_MFG_GPIO_TABLE 0x59504551
+#define ATAG_MFG_GPIO_TABLE 	0x59504551
 #define ATAG_BLUETOOTH		0x43294329
-#define ATAG_PS				0x5441001c
-#define ATAG_GS				0x5441001d
+#define ATAG_PS			0x5441001c
+#define ATAG_GS			0x5441001d
 #define ATAG_MEMSIZE		0x5441001e
-#define ATAG_TP				0x41387898
+#define ATAG_TP			0x41387898
+#define ATAG_WS			0x54410023
+#define ATAG_BLDR_LOG 		0x54410024
+#define ATAG_LAST_BLDR_LOG	0x54410025
+#define ATAG_BATT_DATA		0x54410027
+#define ATAG_CAM		0x54410021
+#define ATAG_GRYO_GSENSOR 	0x54410020
+#define ATAG_CSA 		0x5441001f
+
+struct tag_batt_data {
+	__s32 magic_num;
+	__s32 soc;
+	__s32 ocv;
+	__s32 cc;
+	__u32 currtime;
+};
+struct tag_bldr_log {
+	__u32 addr;
+	__u32 size;
+};
+
+struct tag_last_bldr_log {
+	__u32 addr;
+	__u32 size;
+};
+
 
 struct tag_microp_version {
 	char ver[4];
@@ -243,6 +268,13 @@ struct tag {
 		 * DC21285 specific
 		 */
 		struct tag_memclk	memclk;
+
+		/*
+		 * msm only
+		 */
+		struct tag_bldr_log	bldr_log;
+		struct tag_last_bldr_log last_bldr_log;
+		struct tag_batt_data	batt_data;
 	} u;
 };
 
