@@ -273,6 +273,9 @@ int parse_atags(struct tag *orig_tag, size_t max_size) {
 		printf("    last bldr log = 0x%x[0x%x]\n",
 		    curr_tag->u.last_bldr_log.addr, curr_tag->u.last_bldr_log.size);
 		break;
+	    case ATAG_SECURITY:
+		printf("    hide radio memmory= 0x%x\n", curr_tag->u.revision.rev);
+		break;
 	    case ATAG_WS:
 		printf("    ws calibration = 0x%x\n", curr_tag->u.als_kadc.kadc);
 		break;

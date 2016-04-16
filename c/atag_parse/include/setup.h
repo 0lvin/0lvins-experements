@@ -176,7 +176,7 @@ struct tag_als_kadc {
 #define ATAG_MEM_RESERVED	0x5441000A
 /* MSM CAMERA AWB Calibration */
 #define ATAG_MSM_AWB_CAL	0x59504550
- /* MSM WiFi */
+/* MSM WiFi */
 #define ATAG_MSM_WIFI		0x57494649
 #define ATAG_MFG_GPIO_TABLE 	0x59504551
 #define ATAG_BLUETOOTH		0x43294329
@@ -191,6 +191,8 @@ struct tag_als_kadc {
 #define ATAG_CAM		0x54410021
 #define ATAG_GRYO_GSENSOR 	0x54410020
 #define ATAG_CSA 		0x5441001f
+/* radio security */
+#define ATAG_SECURITY		0x54410022
 
 struct tag_batt_data {
 	__s32 magic_num;
