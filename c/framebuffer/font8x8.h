@@ -1,7 +1,7 @@
 /*
  * Based on drivers/video/console/font_8x8.c from linux kernel
  */
-char font8x8[2048] = {
+unsigned char font8x8[2048] = {
 	/* 0 0x00 '^@' */
 	0x00, /* 00000000 */
 	0x00, /* 00000000 */
