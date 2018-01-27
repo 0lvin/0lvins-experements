@@ -3,18 +3,36 @@
 #include <unistd.h>
 #include <sys/mount.h>
 #include <sys/wait.h>
+#include <stdio.h>
+
 
 int main() {
-	unshare(CLONE_NEWIPC | CLONE_NEWNS | CLONE_NEWNET | CLONE_NEWPID |
-		CLONE_NEWUTS);
+	int res = 0;
+	res = unshare(CLONE_NEWIPC | CLONE_NEWNS | CLONE_NEWNET | CLONE_NEWPID |
+		      CLONE_NEWUTS);
+
+	if (res < 0) {
+		perror("unshare");
+		return 0;
+	}
 
 	if(fork()) {
 		wait(NULL);
 		return 0;
 	}
 
-	umount("/proc");
-	mount("proc", "/proc", "proc", 0, 0);
+	res = umount("/proc");
+	if (res < 0) {
+		perror("unmount proc, not critical");
+	}
 
-	execl("/bin/bash", "/bin/bash", NULL);
+	res = mount("proc", "/proc", "proc", 0, 0);
+	if (res < 0) {
+		perror("mount new proc");
+	}
+
+	res = execl("/bin/bash", "/bin/bash", NULL);
+	if (res < 0) {
+		perror("execl");
+	}
 }
