@@ -100,19 +100,19 @@ int main() {
 
 	res =  mount("proc", "proc", "proc", 0, 0);
 	if (res < 0) {
-		perror("mount sys");
+		perror("mount proc");
 		return 0;
 	}
 
-	res =  mount("tmpfs", "tmp", "tmpfs", 0, 0);
+	res =  mount("tmpfs", "tmp", "tmpfs", 0, "size=65536k");
 	if (res < 0) {
-		perror("mount sys");
+		perror("mount tmp");
 		return 0;
 	}
 
-	res =  mount("tmpfs", "dev", "tmpfs", 0, 0);
+	res =  mount("tmpfs", "dev", "tmpfs", 0, "size=65536k");
 	if (res < 0) {
-		perror("mount dev, not critical");
+		perror("mount dev");
 		return 0;
 	}
 
