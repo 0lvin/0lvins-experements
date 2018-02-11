@@ -1,3 +1,4 @@
+// arm-linux-gnueabihf-gcc fb.c -o init --static
 #include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
