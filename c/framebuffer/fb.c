@@ -280,7 +280,7 @@ int main() {
 	vt_create_nodes();
 	write_text("Hello\n world!\n");
 	// check scroll
-	for (i=0; i<10; i++) {
+	for (i=0; i<3; i++) {
 		char string_buf[1024];
 		snprintf(string_buf, 1023, "Step %d\n", i);
 		write_text(string_buf);
