@@ -52,16 +52,54 @@ static void create_fs() {
 				    S_IRGRP | S_IWGRP | S_IXGRP |
 				    S_IROTH | S_IWOTH | S_IXOTH);
 
+	mkdir_if_not_exists("/run", S_IRUSR | S_IWUSR | S_IXUSR |
+				    S_IRGRP | S_IWGRP | S_IXGRP |
+				    S_IROTH | S_IWOTH | S_IXOTH);
+
 	// create and mount all dirs
+	res =  mount("tmpfs", "tmp", "tmpfs", 0, "size=65536k");
+	if (res < 0) {
+		perror("mount tmp");
+	}
+
 	res =  mount("sysfs", "/sys", "sysfs", 0, "nodev,noexec,nosuid");
 	if (res < 0) {
-		printf("mount sys\n");
+		perror("mount sys");
 	}
 
 	res =  mount("proc", "/proc", "proc", 0, "nodev,noexec,nosuid");
 	if (res < 0) {
-		printf("mount proc\n");
+		perror("mount proc");
 	}
+
+	res =  mount("tmpfs", "/run", "tmpfs", 0, "nosuid,size=20%,mode=0755");
+	if (res < 0) {
+		perror("mount /run");
+	}
+
+	res =  mount("devtmpfs", "/dev", "udev", 0, "size=65536k,mode=0755");
+	if (res < 0) {
+		perror("mount devtmpfs");
+		res =  mount("tmpfs", "/dev", "udev", 0, "size=65536k,mode=0755");
+		if (res < 0) {
+			perror("mount tmpfs");
+		}
+	}
+
+	// dev pts
+	mkdir_if_not_exists("/dev/pts", S_IRUSR | S_IWUSR | S_IXUSR |
+					S_IRGRP | S_IXGRP |
+					S_IROTH | S_IXOTH);
+
+	res =  mount("devpts", "/dev/pts", "devpts", 0, "noexec,nosuid,gid=5,mode=0620");
+	if (res < 0) {
+		perror("mount /dev/pts");
+	}
+
+	mknod("/dev/console", S_IRUSR | S_IWUSR | S_IFCHR, makedev(5, 1));
+	mknod("/dev/null", S_IRUSR | S_IWUSR |
+			   S_IRGRP | S_IWGRP |
+			   S_IROTH | S_IWOTH | S_IFCHR, makedev(1, 3));
 }
 
 // Frameuffer logic
@@ -83,23 +121,23 @@ static int fb_open(struct FB *fb)
 {
 	fb->fd = open("/dev/fb0", O_RDWR);
 	if (fb->fd < 0) {
-		printf("no graphics\n");
+		perror("no graphics");
 		return -1;
 	}
 
 	if (ioctl(fb->fd, FBIOGET_FSCREENINFO, &fb->fi) < 0) {
-		printf("no FBIOGET_FSCREENINFO\n");
+		perror("no FBIOGET_FSCREENINFO");
 		goto fail;
 	}
 	if (ioctl(fb->fd, FBIOGET_VSCREENINFO, &fb->vi) < 0) {
-		printf("no FBIOGET_FSCREENINFO\n");
+		perror("no FBIOGET_FSCREENINFO");
 		goto fail;
 	}
 
 	fb->bits = mmap(0, fb_size(fb), PROT_READ | PROT_WRITE,
 			MAP_SHARED, fb->fd, 0);
 	if (fb->bits == MAP_FAILED) {
-		printf("no MMAP\n");
+		perror("no MMAP");
 		goto fail;
 	}
 
@@ -133,15 +171,19 @@ void vt_create_nodes()
 
 	fd = open("/dev/tty0", O_RDWR | O_SYNC);
 	if (fd < 0) {
-		mknod("/dev/tty0", 8624, makedev(4, 0));
+		mknod("/dev/tty0", S_IRUSR | S_IWUSR |
+				   S_IRGRP | S_IWGRP | S_IFCHR, makedev(4, 0));
 	} else {
 		close(fd);
 	}
 
 	fd = open("/dev/graphics/fb0", O_RDWR);
 	if (fd < 0) {
-		mkdir("/dev/graphics/", 0755);
-		mknod("/dev/graphics/fb0", 8624, makedev(29, 0));
+		mkdir_if_not_exists("/dev/graphics/", S_IRUSR | S_IWUSR | S_IXUSR |
+						      S_IRGRP | S_IXGRP |
+						      S_IROTH | S_IXOTH);
+		mknod("/dev/graphics/fb0", S_IRUSR | S_IWUSR |
+					   S_IRGRP | S_IWGRP | S_IFCHR, makedev(29, 0));
 	} else {
 		close(fd);
 	}
@@ -152,7 +194,7 @@ static int vt_set_mode(int graphics)
 	int fd, r;
 	fd = open("/dev/tty0", O_RDWR | O_SYNC);
 	if (fd < 0) {
-		printf("no tty\n");
+		perror("no tty");
 		return -1;
 	}
 	r = ioctl(fd, KDSETMODE, graphics ? KD_GRAPHICS : KD_TEXT);
@@ -180,10 +222,10 @@ void write_text(const char *fn)
 	unsigned int i, x, y;
 	unsigned short value, mask;
 
-	printf("screen: %s", fn);
+	printf("=>%s", fn);
 
 	if (vt_set_mode(1)) {
-		printf("no mode\n");
+		perror("no mode");
 	}
 
 	if (fb_open(&fb))
@@ -236,11 +278,11 @@ int main() {
 	int i;
 	create_fs();
 	vt_create_nodes();
-	write_text("Hello\n world!");
+	write_text("Hello\n world!\n");
 	// check scroll
 	for (i=0; i<10; i++) {
-		char string_buf[128];
-		snprintf(string_buf, 127, "Step %d\n", i);
+		char string_buf[1024];
+		snprintf(string_buf, 1023, "Step %d\n", i);
 		write_text(string_buf);
 	}
 	// wait for result
