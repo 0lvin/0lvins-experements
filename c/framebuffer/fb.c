@@ -9,9 +9,62 @@
 #include <linux/fb.h>
 #include <stdio.h>
 #include <linux/kd.h>
+#include <sys/mount.h>
 #include <string.h>
 #include "font8x8.h"
 
+// Create fs
+static void mkdir_if_not_exists(const char *target, mode_t mode) {
+	int res = 0;
+	struct stat sb;
+
+	if (stat(target, &sb) != 0)
+	{
+		res =  mkdir(target, mode);
+		if (res < 0) {
+			printf("can't create '%s' dir for mount\n", target);
+		} else {
+			printf("New dir for %s mount\n", target);
+		}
+	} else if (!S_ISDIR(sb.st_mode)) {
+		printf("Exist but not directory %s.\n", target);
+	}
+}
+
+static void create_fs() {
+	int res = 0;
+
+	mkdir_if_not_exists("/dev", S_IRUSR | S_IWUSR | S_IXUSR |
+				    S_IRGRP | S_IXGRP |
+				    S_IROTH | S_IXOTH);
+
+	mkdir_if_not_exists("/root", S_IRUSR | S_IWUSR | S_IXUSR);
+
+	mkdir_if_not_exists("/sys", S_IRUSR | S_IXUSR |
+				    S_IRGRP | S_IXGRP |
+				    S_IROTH | S_IXOTH);
+
+	mkdir_if_not_exists("/proc", S_IRUSR | S_IXUSR |
+				     S_IRGRP | S_IXGRP |
+				     S_IROTH | S_IXOTH);
+
+	mkdir_if_not_exists("/tmp", S_IRUSR | S_IWUSR | S_IXUSR |
+				    S_IRGRP | S_IWGRP | S_IXGRP |
+				    S_IROTH | S_IWOTH | S_IXOTH);
+
+	// create and mount all dirs
+	res =  mount("sysfs", "/sys", "sysfs", 0, "nodev,noexec,nosuid");
+	if (res < 0) {
+		printf("mount sys\n");
+	}
+
+	res =  mount("proc", "/proc", "proc", 0, "nodev,noexec,nosuid");
+	if (res < 0) {
+		printf("mount proc\n");
+	}
+}
+
+// Frameuffer logic
 static unsigned int lx=0, ly=0;
 
 struct FB {
@@ -181,10 +234,11 @@ fail_unmap_data:
 
 int main() {
 	int i;
+	create_fs();
 	vt_create_nodes();
 	write_text("Hello\n world!");
 	// check scroll
-	for (i=0; i<1000; i++) {
+	for (i=0; i<10; i++) {
 		char string_buf[128];
 		snprintf(string_buf, 127, "Step %d\n", i);
 		write_text(string_buf);
