@@ -62,25 +62,25 @@ static void create_fs() {
 		perror("mount tmp");
 	}
 
-	res =  mount("sysfs", "/sys", "sysfs", 0, "nodev,noexec,nosuid");
+	res =  mount("sysfs", "/sys", "sysfs", MS_NODEV | MS_NOEXEC | MS_NOSUID, 0);
 	if (res < 0) {
 		perror("mount sys");
 	}
 
-	res =  mount("proc", "/proc", "proc", 0, "nodev,noexec,nosuid");
+	res =  mount("proc", "/proc", "proc", MS_NODEV | MS_NOEXEC | MS_NOSUID, 0);
 	if (res < 0) {
 		perror("mount proc");
 	}
 
-	res =  mount("tmpfs", "/run", "tmpfs", 0, "nosuid,size=20%,mode=0755");
+	res =  mount("tmpfs", "/run", "tmpfs", MS_NOSUID, "size=20%,mode=0755");
 	if (res < 0) {
 		perror("mount /run");
 	}
 
-	res =  mount("devtmpfs", "/dev", "udev", 0, "size=65536k,mode=0755");
+	res =  mount("udev", "/dev", "devtmpfs", 0, "size=65536k,mode=0755");
 	if (res < 0) {
 		perror("mount devtmpfs");
-		res =  mount("tmpfs", "/dev", "udev", 0, "size=65536k,mode=0755");
+		res =  mount("udev", "/dev", "tmpfs", 0, "size=65536k,mode=0755");
 		if (res < 0) {
 			perror("mount tmpfs");
 		}
@@ -91,7 +91,7 @@ static void create_fs() {
 					S_IRGRP | S_IXGRP |
 					S_IROTH | S_IXOTH);
 
-	res =  mount("devpts", "/dev/pts", "devpts", 0, "noexec,nosuid,gid=5,mode=0620");
+	res =  mount("devpts", "/dev/pts", "devpts", MS_NOEXEC | MS_NOSUID, "gid=5,mode=0620");
 	if (res < 0) {
 		perror("mount /dev/pts");
 	}
@@ -121,8 +121,12 @@ static int fb_open(struct FB *fb)
 {
 	fb->fd = open("/dev/fb0", O_RDWR);
 	if (fb->fd < 0) {
-		perror("no graphics");
-		return -1;
+		perror("no graphics at /dev/fb0");
+		fb->fd = open("/dev/graphics/fb0", O_RDWR);
+		if (fb->fd < 0) {
+			perror("no graphics at /dev/graphics/fb0");
+			return -1;
+		}
 	}
 
 	if (ioctl(fb->fd, FBIOGET_FSCREENINFO, &fb->fi) < 0) {
