@@ -1,3 +1,8 @@
+// TODO:
+// subcalll
+// terminal codes
+// redirect io
+// usb tty emul
 // arm-linux-gnueabihf-gcc fb.c -o init --static
 #include <sys/stat.h>
 #include <unistd.h>
