@@ -7,18 +7,21 @@
 #include <sys/types.h>
 #include <stdio.h>
 
-
-int create_for_mount(const char *target, mode_t mode) {
+static void mkdir_if_not_exists(const char *target, mode_t mode) {
 	int res = 0;
+	struct stat sb;
 
-	res =  mkdir(target, mode);
-	if (res < 0) {
-		perror("mkdir");
-		printf("can't create '%s' dir for mount\n", target);
+	if (stat(target, &sb) != 0)
+	{
+		res =  mkdir(target, mode);
+		if (res < 0) {
+			printf("can't create '%s' dir for mount\n", target);
+		} else {
+			printf("New dir for %s mount\n", target);
+		}
+	} else if (!S_ISDIR(sb.st_mode)) {
+		printf("Exist but not directory %s.\n", target);
 	}
-
-	printf("New dir for %s mount\n", target);
-	return 0;
 }
 
 int main() {
@@ -27,29 +30,21 @@ int main() {
 	char cwd[4048] = "\0";
 
 	// create and mount all dirs
-	if (create_for_mount("sys", S_IRUSR | S_IXUSR |
+	mkdir_if_not_exists("sys", S_IRUSR | S_IXUSR |
+				   S_IRGRP | S_IXGRP |
+				   S_IROTH | S_IXOTH);
+
+	mkdir_if_not_exists("proc", S_IRUSR | S_IXUSR |
 				    S_IRGRP | S_IXGRP |
-				    S_IROTH | S_IXOTH) != 0) {
-		return 0;
-	}
+				    S_IROTH | S_IXOTH);
 
-	if (create_for_mount("proc", S_IRUSR | S_IXUSR |
-				     S_IRGRP | S_IXGRP |
-				     S_IROTH | S_IXOTH) != 0) {
-		return 0;
-	}
+	mkdir_if_not_exists("tmp", S_IRUSR | S_IWUSR | S_IXUSR |
+				   S_IRGRP | S_IWGRP | S_IXGRP |
+				   S_IROTH | S_IWOTH | S_IXOTH);
 
-	if (create_for_mount("tmp", S_IRUSR | S_IWUSR | S_IXUSR |
-				    S_IRGRP | S_IWGRP | S_IXGRP |
-				    S_IROTH | S_IWOTH | S_IXOTH) != 0) {
-		return 0;
-	}
-
-	if (create_for_mount("dev", S_IRUSR | S_IWUSR | S_IXUSR |
-				    S_IRGRP | S_IXGRP |
-				    S_IROTH | S_IXOTH) != 0) {
-		return 0;
-	}
+	mkdir_if_not_exists("dev", S_IRUSR | S_IWUSR | S_IXUSR |
+				   S_IRGRP | S_IXGRP |
+				   S_IROTH | S_IXOTH);
 
 	// go to separate namespace
 	res = unshare(CLONE_NEWCGROUP | CLONE_NEWUSER | CLONE_NEWIPC |
@@ -92,25 +87,25 @@ int main() {
 	}
 
 	// create and mount all dirs
-	res =  mount("sysfs", "sys", "sysfs", 0, 0);
+	res = mount("sysfs", "/sys", "sysfs", MS_NODEV | MS_NOEXEC | MS_NOSUID, 0);
 	if (res < 0) {
 		perror("mount sys");
 		return 0;
 	}
 
-	res =  mount("proc", "proc", "proc", 0, 0);
+	res = mount("proc", "/proc", "proc", MS_NODEV | MS_NOEXEC | MS_NOSUID, 0);
 	if (res < 0) {
 		perror("mount proc");
 		return 0;
 	}
 
-	res =  mount("tmpfs", "tmp", "tmpfs", 0, "size=65536k");
+	res = mount("tmpfs", "tmp", "tmpfs", 0, "size=65536k");
 	if (res < 0) {
 		perror("mount tmp");
 		return 0;
 	}
 
-	res =  mount("tmpfs", "dev", "tmpfs", 0, "size=65536k");
+	res = mount("tmpfs", "dev", "tmpfs", 0, "size=65536k");
 	if (res < 0) {
 		perror("mount dev");
 		return 0;

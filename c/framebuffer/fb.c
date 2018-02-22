@@ -62,30 +62,30 @@ static void create_fs() {
 				    S_IROTH | S_IWOTH | S_IXOTH);
 
 	// create and mount all dirs
-	res =  mount("tmpfs", "tmp", "tmpfs", 0, "size=65536k");
+	res = mount("tmpfs", "tmp", "tmpfs", 0, "size=65536k");
 	if (res < 0) {
 		perror("mount tmp");
 	}
 
-	res =  mount("sysfs", "/sys", "sysfs", MS_NODEV | MS_NOEXEC | MS_NOSUID, 0);
+	res = mount("sysfs", "/sys", "sysfs", MS_NODEV | MS_NOEXEC | MS_NOSUID, 0);
 	if (res < 0) {
 		perror("mount sys");
 	}
 
-	res =  mount("proc", "/proc", "proc", MS_NODEV | MS_NOEXEC | MS_NOSUID, 0);
+	res = mount("proc", "/proc", "proc", MS_NODEV | MS_NOEXEC | MS_NOSUID, 0);
 	if (res < 0) {
 		perror("mount proc");
 	}
 
-	res =  mount("tmpfs", "/run", "tmpfs", MS_NOSUID, "size=20%,mode=0755");
+	res = mount("tmpfs", "/run", "tmpfs", MS_NOSUID, "size=20%,mode=0755");
 	if (res < 0) {
 		perror("mount /run");
 	}
 
-	res =  mount("udev", "/dev", "devtmpfs", 0, "size=65536k,mode=0755");
+	res = mount("udev", "/dev", "devtmpfs", 0, "size=65536k,mode=0755");
 	if (res < 0) {
 		perror("mount devtmpfs");
-		res =  mount("udev", "/dev", "tmpfs", 0, "size=65536k,mode=0755");
+		res = mount("udev", "/dev", "tmpfs", 0, "size=65536k,mode=0755");
 		if (res < 0) {
 			perror("mount tmpfs");
 		}
@@ -96,7 +96,7 @@ static void create_fs() {
 					S_IRGRP | S_IXGRP |
 					S_IROTH | S_IXOTH);
 
-	res =  mount("devpts", "/dev/pts", "devpts", MS_NOEXEC | MS_NOSUID, "gid=5,mode=0620");
+	res = mount("devpts", "/dev/pts", "devpts", MS_NOEXEC | MS_NOSUID, "gid=5,mode=0620");
 	if (res < 0) {
 		perror("mount /dev/pts");
 	}

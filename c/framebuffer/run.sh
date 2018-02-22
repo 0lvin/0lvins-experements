@@ -7,6 +7,10 @@ wget -cv https://people.debian.org/~aurel32/qemu/armhf/debian_wheezy_armhf_stand
 wget -cv https://people.debian.org/~aurel32/qemu/armhf/initrd.img-3.2.0-4-vexpress
 wget -cv https://people.debian.org/~aurel32/qemu/armhf/vmlinuz-3.2.0-4-vexpress
 
+wget -cv https://busybox.net/downloads/busybox-1.28.1.tar.bz2
+rm -rf busybox-1.28.1
+tar -xvf busybox-1.28.1.tar.bz2
+
 rm -rf check_image.qcow2
 qemu-img create -f qcow2 -o backing_file=debian_wheezy_armhf_standard.qcow2 check_image.qcow2
 
