@@ -20,7 +20,7 @@ cd initram
 
 gunzip -c ../initrd.img-3.2.0-4-vexpress | cpio -idmv
 
-arm-linux-gnueabihf-gcc --pedantic --static ../../fb.c -o init
+arm-linux-gnueabihf-gcc --pedantic --static ../../fb.c ../../utils.c  -o init
 
 find . | cpio -o -H newc | gzip > ../initrd.img-3.2.0-4-vexpress-new
 

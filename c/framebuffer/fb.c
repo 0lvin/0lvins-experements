@@ -4,7 +4,6 @@
 // redirect io
 // usb tty emul
 // arm-linux-gnueabihf-gcc fb.c -o init --static
-#include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -12,30 +11,13 @@
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <linux/fb.h>
-#include <stdio.h>
 #include <linux/kd.h>
-#include <sys/mount.h>
 #include <string.h>
+
+#include "utils.h"
 #include "font8x8.h"
 
 // Create fs
-static void mkdir_if_not_exists(const char *target, mode_t mode) {
-	int res = 0;
-	struct stat sb;
-
-	if (stat(target, &sb) != 0)
-	{
-		res =  mkdir(target, mode);
-		if (res < 0) {
-			printf("can't create '%s' dir for mount\n", target);
-		} else {
-			printf("New dir for %s mount\n", target);
-		}
-	} else if (!S_ISDIR(sb.st_mode)) {
-		printf("Exist but not directory %s.\n", target);
-	}
-}
-
 static void create_fs() {
 	int res = 0;
 

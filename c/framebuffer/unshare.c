@@ -1,28 +1,10 @@
 #define _GNU_SOURCE
 #include <sched.h>
 #include <unistd.h>
-#include <sys/mount.h>
 #include <sys/wait.h>
-#include <sys/stat.h>
 #include <sys/types.h>
-#include <stdio.h>
 
-static void mkdir_if_not_exists(const char *target, mode_t mode) {
-	int res = 0;
-	struct stat sb;
-
-	if (stat(target, &sb) != 0)
-	{
-		res =  mkdir(target, mode);
-		if (res < 0) {
-			printf("can't create '%s' dir for mount\n", target);
-		} else {
-			printf("New dir for %s mount\n", target);
-		}
-	} else if (!S_ISDIR(sb.st_mode)) {
-		printf("Exist but not directory %s.\n", target);
-	}
-}
+#include "utils.h"
 
 int main() {
 	int res = 0;

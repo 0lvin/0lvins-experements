@@ -1,15 +1,19 @@
 CC := gcc
+CFLAGS := --pedantic -Wall
 
 all: init unshare setns
 
-init: fb.c font8x8.h
-	$(CC) --pedantic --static fb.c -o init
+%.o: %.c utils.h font8x8.h
+	$(CC) -c $(CFLAGS) -o $@ $<
 
-unshare: unshare.c
-	$(CC) --pedantic --static unshare.c -o unshare
+init: fb.o utils.o
+	$(CC) --static fb.o utils.o -o init
 
-setns: setns.c
-	$(CC) --pedantic --static setns.c -o setns
+unshare: unshare.o utils.o
+	$(CC) --static unshare.o utils.o -o unshare
+
+setns: setns.o
+	$(CC) --static setns.o -o setns
 
 clean:
 	rm -f *.o
