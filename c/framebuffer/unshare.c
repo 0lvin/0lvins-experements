@@ -10,6 +10,7 @@ int main() {
 	int res = 0;
 	int pid = 0;
 	char cwd[4048] = "\0";
+	int flags = 0;
 
 	// create and mount all dirs
 	mkdir_if_not_exists("sys", S_IRUSR | S_IXUSR |
@@ -28,9 +29,49 @@ int main() {
 				   S_IRGRP | S_IXGRP |
 				   S_IROTH | S_IXOTH);
 
+#ifdef CLONE_NEWCGROUP
+	flags |= CLONE_NEWCGROUP;
+#else
+	printf("CLONE_NEWCGROUP unsupported.\n");
+#endif
+
+#ifdef CLONE_NEWUSER
+	flags |= CLONE_NEWUSER;
+#else
+	printf("CLONE_NEWUSER unsupported.\n");
+#endif
+
+#ifdef CLONE_NEWIPC
+	flags |= CLONE_NEWIPC;
+#else
+	printf("CLONE_NEWIPC unsupported.\n");
+#endif
+
+#ifdef CLONE_NEWNS
+	flags |= CLONE_NEWNS;
+#else
+	printf("CLONE_NEWNS unsupported.\n");
+#endif
+
+#ifdef CLONE_NEWNET
+	flags |= CLONE_NEWNET;
+#else
+	printf("CLONE_NEWNET unsupported.\n");
+#endif
+
+#ifdef CLONE_NEWPID
+	flags |= CLONE_NEWPID;
+#else
+	printf("CLONE_NEWPID unsupported.\n");
+#endif
+
+#ifdef CLONE_NEWUTS
+	flags |= CLONE_NEWUTS;
+#else
+	printf("CLONE_NEWUTS unsupported.\n");
+#endif
 	// go to separate namespace
-	res = unshare(CLONE_NEWCGROUP | CLONE_NEWUSER | CLONE_NEWIPC |
-		      CLONE_NEWNS | CLONE_NEWNET | CLONE_NEWPID | CLONE_NEWUTS);
+	res = unshare(flags);
 
 	if (res < 0) {
 		perror("unshare");
@@ -81,13 +122,13 @@ int main() {
 		return 0;
 	}
 
-	res = mount("tmpfs", "tmp", "tmpfs", 0, "size=65536k");
+	res = mount("tmpfs", "/tmp", "tmpfs", 0, "size=65536k");
 	if (res < 0) {
 		perror("mount tmp");
 		return 0;
 	}
 
-	res = mount("tmpfs", "dev", "tmpfs", 0, "size=65536k");
+	res = mount("tmpfs", "/dev", "tmpfs", 0, "size=65536k");
 	if (res < 0) {
 		perror("mount dev");
 		return 0;

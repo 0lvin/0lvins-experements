@@ -13,6 +13,7 @@
 #include <linux/fb.h>
 #include <linux/kd.h>
 #include <string.h>
+#include <sys/utsname.h>
 
 #include "utils.h"
 #include "font8x8.h"
@@ -44,7 +45,7 @@ static void create_fs() {
 				    S_IROTH | S_IWOTH | S_IXOTH);
 
 	// create and mount all dirs
-	res = mount("tmpfs", "tmp", "tmpfs", 0, "size=65536k");
+	res = mount("tmpfs", "/tmp", "tmpfs", 0, "size=65536k");
 	if (res < 0) {
 		perror("mount tmp");
 	}
@@ -267,8 +268,24 @@ fail_unmap_data:
 
 int main() {
 	int i;
+	struct utsname utsname_buffer = {0};
+
 	create_fs();
 	vt_create_nodes();
+
+	if (uname(&utsname_buffer) < 0) {
+		perror("uname");
+	} else {
+		printf("sysname: %s\n", utsname_buffer.sysname);
+		printf("nodename: %s\n", utsname_buffer.nodename);
+		printf("release: %s\n", utsname_buffer.release);
+		printf("version: %s\n", utsname_buffer.version);
+		printf("machine: %s\n", utsname_buffer.machine);
+#ifdef _GNU_SOURCE
+		printf("domainname: %s\n", utsname_buffer.domainname);
+#endif
+	}
+
 	write_text("Hello\n world!\n");
 	// check scroll
 	for (i=0; i<3; i++) {
