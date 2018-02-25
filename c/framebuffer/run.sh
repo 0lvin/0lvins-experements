@@ -1,6 +1,5 @@
 #!/bin/bash
 mkdir -p  arm-check
-echo "*" > arm-check/.gitignore
 cd arm-check
 
 wget -cv https://people.debian.org/~aurel32/qemu/armhf/debian_wheezy_armhf_standard.qcow2

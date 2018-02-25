@@ -1,9 +1,26 @@
-// TODO:
-// subcalll
-// terminal codes
-// redirect io
-// usb tty emul
-// arm-linux-gnueabihf-gcc fb.c -o init --static
+/*
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/* TODO:
+ * subcalll
+ * terminal codes
+ * redirect io
+ * usb tty emul
+ *
+ * arm-linux-gnueabihf-gcc fb.c -o init --static
+ */
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -84,6 +101,7 @@ static void create_fs() {
 		perror("mount /dev/pts");
 	}
 
+	mknod("/dev/kmsg", S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH | S_IFCHR, makedev(1,  11));
 	mknod("/dev/console", S_IRUSR | S_IWUSR | S_IFCHR, makedev(5, 1));
 	mknod("/dev/null", S_IRUSR | S_IWUSR |
 			   S_IRGRP | S_IWGRP |
@@ -195,7 +213,7 @@ static int vt_set_mode(int graphics)
 }
 
 void set_pixel(struct FB *fb, unsigned short r, unsigned short g, unsigned short b, short x, short y) {
-	long long pixel_color = 0;
+	long pixel_color = 0;
 	long red = (r & 0xFFFF) >> (16 - fb->vi.red.length);
 	long green = (g & 0xFFFF) >> (16 - fb->vi.green.length);
 	long blue = (b & 0xFFFF) >> (16 - fb->vi.blue.length);
@@ -208,44 +226,36 @@ void set_pixel(struct FB *fb, unsigned short r, unsigned short g, unsigned short
 	memcpy(write_pos, &pixel_color, count_bytes);
 }
 
-void write_text(const char *fn)
+void write_text(const char *fn, struct FB *fb)
 {
-	struct FB fb;
 	unsigned int i, x, y;
 	unsigned short value, mask;
 
 	printf("=>%s", fn);
 
-	if (vt_set_mode(1)) {
-		perror("no mode");
-	}
-
-	if (fb_open(&fb))
-		goto fail_unmap_data;
-
 	for(i = 0; i < strlen(fn); i ++) {
 		if (fn[i] == '\n') {
-			for(x=lx; x < (fb.vi.xres); x ++) {
+			for(x=lx; x < (fb->vi.xres); x ++) {
 				for(y=0; y < 8; y ++) {
-					set_pixel(&fb, 0, 0, 0, x, ly + y);
+					set_pixel(fb, 0, 0, 0, x, ly + y);
 				}
 			}
 			ly += 8;
 			lx = 0;
-			if (ly < (fb.vi.yres - 8)) {
-				for(x=0; x < fb.vi.xres; x ++) {
+			if (ly < (fb->vi.yres - 8)) {
+				for(x=0; x < fb->vi.xres; x ++) {
 					for(y=0; y < 8; y ++) {
-						set_pixel(&fb, 0, 0xffff, 0xffff, x, ly + y);
+						set_pixel(fb, 0, 0xffff, 0xffff, x, ly + y);
 					}
 				}
 			}
 			continue;
 		}
-		if (lx >= (fb.vi.xres - 8)) {
+		if (lx >= (fb->vi.xres - 8)) {
 			lx = 0;
 			ly += 8;
 		}
-		if (ly >= (fb.vi.yres - 8)) {
+		if (ly >= (fb->vi.yres - 8)) {
 			ly = 0;
 		}
 		for (x = 0; x < 8; x++) {
@@ -253,17 +263,11 @@ void write_text(const char *fn)
 				mask = font8x8[fn[i] * 8 + y];
 				/* font pixels: 0 - right, 7 - left */
 				value = (mask & (1 << (7 - x))) == 0 ? 0 : 0xffff;
-				set_pixel(&fb, value, value, value, lx + x, ly + y);
+				set_pixel(fb, value, value, value, lx + x, ly + y);
 			}
 		}
 		lx += 8;
 	}
-	fb_update(&fb);
-	fb_close(&fb);
-	return;
-
-fail_unmap_data:
-	vt_set_mode(0);
 }
 
 int main() {
@@ -286,15 +290,28 @@ int main() {
 #endif
 	}
 
-	write_text("Hello\n world!\n");
-	// check scroll
-	for (i=0; i<3; i++) {
-		char string_buf[1024];
-		snprintf(string_buf, 1023, "Step %d\n", i);
-		write_text(string_buf);
+	struct FB fb;
+
+	if (vt_set_mode(1)) {
+		perror("no mode");
 	}
-	// wait for result
-	sleep(600);
+
+	if (!fb_open(&fb)) {
+		write_text("Hello\n world!\n", &fb);
+
+		// check scroll
+		for (i=0; i<20; i++) {
+			char string_buf[1024];
+			snprintf(string_buf, 1023, "Step %d\n", i);
+			write_text(string_buf, &fb);
+		}
+		// wait for result
+		sleep(600);
+
+		fb_update(&fb);
+		fb_close(&fb);
+	}
 	vt_set_mode(0);
+
 	return 0;
 }
