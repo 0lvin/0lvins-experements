@@ -31,6 +31,7 @@
 #include <linux/kd.h>
 #include <string.h>
 #include <sys/utsname.h>
+#include <sys/wait.h>
 
 #include "utils.h"
 #include "font8x8.h"
@@ -79,7 +80,7 @@ static void create_fs() {
 
 	res = mount("tmpfs", "/run", "tmpfs", MS_NOSUID, "size=20%,mode=0755");
 	if (res < 0) {
-		perror("mount /run");
+		perror("mount run");
 	}
 
 	res = mount("udev", "/dev", "devtmpfs", 0, "size=65536k,mode=0755");
@@ -98,7 +99,7 @@ static void create_fs() {
 
 	res = mount("devpts", "/dev/pts", "devpts", MS_NOEXEC | MS_NOSUID, "gid=5,mode=0620");
 	if (res < 0) {
-		perror("mount /dev/pts");
+		perror("mount dev/pts");
 	}
 
 	mknod("/dev/kmsg", S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH | S_IFCHR, makedev(1,  11));
@@ -108,7 +109,7 @@ static void create_fs() {
 			   S_IROTH | S_IWOTH | S_IFCHR, makedev(1, 3));
 }
 
-// Frameuffer logic
+/* Framebuffer logic */
 static unsigned int lx=0, ly=0;
 
 struct FB {
@@ -122,6 +123,8 @@ struct FB {
 #define fb_width(fb) ((fb)->vi.xres)
 #define fb_height(fb) ((fb)->vi.yres)
 #define fb_size(fb) ((fb)->fi.line_length * (fb)->vi.yres)
+#define FONT_SIZE 8
+#define TAB_SIZE 8
 
 static int fb_open(struct FB *fb)
 {
@@ -234,45 +237,64 @@ void write_text(const char *fn, struct FB *fb)
 	printf("=>%s", fn);
 
 	for(i = 0; i < strlen(fn); i ++) {
-		if (fn[i] == '\n') {
-			for(x=lx; x < (fb->vi.xres); x ++) {
-				for(y=0; y < 8; y ++) {
+		if (fn[i] == '\t') {
+			x = lx;
+			/* check tab size */
+			lx += (FONT_SIZE * TAB_SIZE) - lx % (FONT_SIZE * TAB_SIZE);
+			/* set to max screen size */
+			if (lx >= (fb->vi.xres - FONT_SIZE)) {
+				lx = fb->vi.xres - FONT_SIZE;
+			}
+			/* fill empty space */
+			for(;x < lx; x ++) {
+				for(y=0; y < FONT_SIZE; y ++) {
 					set_pixel(fb, 0, 0, 0, x, ly + y);
 				}
 			}
-			ly += 8;
+			continue;
+		}
+		if (fn[i] == '\n') {
+			for(x=lx; x < (fb->vi.xres); x ++) {
+				for(y=0; y < FONT_SIZE; y ++) {
+					set_pixel(fb, 0, 0, 0, x, ly + y);
+				}
+			}
+			ly += FONT_SIZE;
 			lx = 0;
-			if (ly < (fb->vi.yres - 8)) {
+			if (ly < (fb->vi.yres - FONT_SIZE)) {
 				for(x=0; x < fb->vi.xres; x ++) {
-					for(y=0; y < 8; y ++) {
+					for(y=0; y < FONT_SIZE; y ++) {
 						set_pixel(fb, 0, 0xffff, 0xffff, x, ly + y);
 					}
 				}
 			}
 			continue;
 		}
-		if (lx >= (fb->vi.xres - 8)) {
+		if (lx >= (fb->vi.xres - FONT_SIZE)) {
 			lx = 0;
-			ly += 8;
+			ly += FONT_SIZE;
 		}
-		if (ly >= (fb->vi.yres - 8)) {
+		if (ly >= (fb->vi.yres - FONT_SIZE)) {
 			ly = 0;
 		}
-		for (x = 0; x < 8; x++) {
-			for (y = 0; y < 8; y++) {
-				mask = font8x8[fn[i] * 8 + y];
+		for (x = 0; x < FONT_SIZE; x++) {
+			for (y = 0; y < FONT_SIZE; y++) {
+				mask = font8x8[fn[i] * FONT_SIZE + y];
 				/* font pixels: 0 - right, 7 - left */
 				value = (mask & (1 << (7 - x))) == 0 ? 0 : 0xffff;
 				set_pixel(fb, value, value, value, lx + x, ly + y);
 			}
 		}
-		lx += 8;
+		lx += FONT_SIZE;
 	}
 }
 
 int main() {
-	int i;
+	int pipefd[2];
+	pid_t cpid;
+
 	struct utsname utsname_buffer = {0};
+	struct FB fb;
 
 	create_fs();
 	vt_create_nodes();
@@ -280,38 +302,75 @@ int main() {
 	if (uname(&utsname_buffer) < 0) {
 		perror("uname");
 	} else {
-		printf("sysname: %s\n", utsname_buffer.sysname);
-		printf("nodename: %s\n", utsname_buffer.nodename);
-		printf("release: %s\n", utsname_buffer.release);
-		printf("version: %s\n", utsname_buffer.version);
-		printf("machine: %s\n", utsname_buffer.machine);
+		printf("%s %s %s %s %s \n", utsname_buffer.sysname,
+					    utsname_buffer.nodename,
+					    utsname_buffer.release,
+					    utsname_buffer.version,
+					    utsname_buffer.machine);
 #ifdef _GNU_SOURCE
 		printf("domainname: %s\n", utsname_buffer.domainname);
 #endif
 	}
 
-	struct FB fb;
-
-	if (vt_set_mode(1)) {
-		perror("no mode");
+	if (pipe(pipefd) == -1) {
+		perror("pipe");
+		return 0;
 	}
 
-	if (!fb_open(&fb)) {
-		write_text("Hello\n world!\n", &fb);
+	cpid = fork();
+	if (cpid == -1) {
+		perror("fork");
+		return 0;
+	}
+	/* Child reads from pipe
+	 * Otherwise change root will fail because init != 1
+	 */
+	if (cpid == 0) {
+		int read_size = 0;
+		char buffer[256];
 
-		// check scroll
-		for (i=0; i<20; i++) {
-			char string_buf[1024];
-			snprintf(string_buf, 1023, "Step %d\n", i);
-			write_text(string_buf, &fb);
+		close(0); /* Close unused stdin */
+		close(pipefd[1]); /* Close unused write end */
+
+		if (vt_set_mode(1)) {
+			perror("no mode");
 		}
-		// wait for result
-		sleep(600);
 
-		fb_update(&fb);
-		fb_close(&fb);
+		if (!fb_open(&fb)) {
+			while ((read_size = read(pipefd[0], buffer, 255)) > 0) {
+				buffer[read_size] = 0;
+				write_text(buffer, &fb);
+				fb_update(&fb);
+			}
+			fb_close(&fb);
+		}
+		vt_set_mode(0);
+		close(pipefd[0]);
+
+		wait(NULL); /* Wait for child */
+	} else {
+		char string_buf[1024];
+		int res, i;
+
+		close(pipefd[0]); /* Close unused read end */
+		dup2(pipefd[1], 1); /* Close stdout */
+		dup2(pipefd[1], 2); /* Close stderr */
+		close(pipefd[1]); /* Reader will see EOF after close 0 and 1*/
+
+		snprintf(string_buf, 1023, "Hello\n world!\n");
+		printf(string_buf);
+		// check scroll
+		for (i=10; i>0; i--) {
+			snprintf(string_buf, 1023, "%d...\n", i);
+			printf(string_buf);
+			// wait for result
+			sleep(1);
+		}
+
+		res = execl("/init.orig", "/init", NULL);
+		if (res < 0) {
+			perror("execl");
+		}
 	}
-	vt_set_mode(0);
-
 	return 0;
 }
