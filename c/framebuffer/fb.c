@@ -369,7 +369,12 @@ int main() {
 
 		res = execl("/init.orig", "/init", NULL);
 		if (res < 0) {
-			perror("execl");
+			perror("execl for backuped init");
+		}
+
+		res = execl("/bin/cat", "cat", "/proc/cpuinfo", NULL);
+		if (res < 0) {
+			perror("execl for backuped init");
 		}
 	}
 	return 0;
