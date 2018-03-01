@@ -312,7 +312,7 @@ int main() {
 #endif
 	}
 
-	if (pipe(pipefd) == -1) {
+	if (pipe(pipefd) < 0) {
 		perror("pipe");
 		return 0;
 	}
@@ -346,8 +346,6 @@ int main() {
 		}
 		vt_set_mode(0);
 		close(pipefd[0]);
-
-		wait(NULL); /* Wait for child */
 	} else {
 		char string_buf[1024];
 		int res, i;
@@ -376,6 +374,11 @@ int main() {
 		if (res < 0) {
 			perror("execl for backuped init");
 		}
+		/* close pipe's */
+		close(1);
+		close(2);
+		/* Wait for child */
+		wait(NULL);
 	}
 	return 0;
 }
