@@ -291,54 +291,78 @@ void write_text(const char *fn, struct FB *fb)
 }
 
 int main() {
-	int i;
-	struct utsname utsname_buffer = {0};
+	pid_t cpid;
 	struct FB fb;
+	int pipefd[2] = {-1, -1};
 
 	create_fs();
 	vt_create_nodes();
 
-	if (vt_set_mode(1)) {
-		perror("no mode");
+	if (pipe(pipefd) < 0) {
+		perror("pipe");
+		pipefd[0] = -1;
+		pipefd[1] = -1;
 	}
 
-	if (!fb_open(&fb)) {
-		char string_buf[1024];
+	cpid = fork();
+	if (cpid == -1) {
+		perror("fork");
+	}
 
-		if (uname(&utsname_buffer) < 0) {
-			perror("uname");
-			write_text("uname\n", &fb);
-		} else {
-			snprintf(string_buf, sizeof(string_buf) - 1, "%s %s %s %s %s \n",
-					utsname_buffer.sysname,
-					utsname_buffer.nodename,
-					utsname_buffer.release,
-					utsname_buffer.version,
-					utsname_buffer.machine);
-			write_text(string_buf, &fb);
+	if (cpid != 0) {
+		if (vt_set_mode(1)) {
+			perror("no mode");
+		}
+
+		if (!fb_open(&fb)) {
+			int i;
+			struct utsname utsname_buffer = {0};
+			char string_buf[1024];
+
+			if (pipefd[0] == -1) {
+				write_text("pipe\n", &fb);
+			}
+
+			if (cpid == -1) {
+				write_text("fork\n", &fb);
+			}
+
+
+			if (uname(&utsname_buffer) < 0) {
+				perror("uname");
+				write_text("uname\n", &fb);
+			} else {
+				snprintf(string_buf, sizeof(string_buf) - 1, "%s %s %s %s %s \n",
+						utsname_buffer.sysname,
+						utsname_buffer.nodename,
+						utsname_buffer.release,
+						utsname_buffer.version,
+						utsname_buffer.machine);
+				write_text(string_buf, &fb);
 #ifdef _GNU_SOURCE
-			snprintf(string_buf, sizeof(string_buf) - 1, "domainname: %s\n", utsname_buffer.domainname);
-			write_text(string_buf, &fb);
+				snprintf(string_buf, sizeof(string_buf) - 1, "domainname: %s\n", utsname_buffer.domainname);
+				write_text(string_buf, &fb);
 #endif
-		}
+			}
 
-		write_text("Hello\n world!\n", &fb);
-		/* check scroll */
-		for (i=10; i>0; i--) {
-			snprintf(string_buf, sizeof(string_buf) - 1, "%d...\n", i);
-			write_text(string_buf, &fb);
+			write_text("Hello\n world!\n", &fb);
+			/* check scroll */
+			for (i=10; i>0; i--) {
+				snprintf(string_buf, sizeof(string_buf) - 1, "%d...\n", i);
+				write_text(string_buf, &fb);
+				/* wait for result */
+				sleep(1);
+			}
 			/* wait for result */
-			sleep(1);
+			sleep(30);
+
+			fb_update(&fb);
+			fb_close(&fb);
 		}
-		/* wait for result */
-		sleep(600);
+		vt_set_mode(0);
 
-		fb_update(&fb);
-		fb_close(&fb);
+		reboot(LINUX_REBOOT_CMD_RESTART);
 	}
-	vt_set_mode(0);
-
-	reboot(LINUX_REBOOT_CMD_RESTART);
 
 	return 0;
 }
