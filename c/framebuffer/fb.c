@@ -31,6 +31,8 @@
 #include <linux/kd.h>
 #include <string.h>
 #include <sys/utsname.h>
+#include <linux/reboot.h>
+#include <sys/reboot.h>
 
 #include "utils.h"
 #include "font8x8.h"
@@ -61,7 +63,7 @@ static void create_fs() {
 				    S_IRGRP | S_IWGRP | S_IXGRP |
 				    S_IROTH | S_IWOTH | S_IXOTH);
 
-	// create and mount all dirs
+	/* create and mount all dirs */
 	res = mount("tmpfs", "/tmp", "tmpfs", 0, "size=65536k");
 	if (res < 0) {
 		perror("mount tmp");
@@ -91,7 +93,7 @@ static void create_fs() {
 		}
 	}
 
-	// dev pts
+	/* dev pts */
 	mkdir_if_not_exists("/dev/pts", S_IRUSR | S_IWUSR | S_IXUSR |
 					S_IRGRP | S_IXGRP |
 					S_IROTH | S_IXOTH);
@@ -321,20 +323,22 @@ int main() {
 		}
 
 		write_text("Hello\n world!\n", &fb);
-		// check scroll
+		/* check scroll */
 		for (i=10; i>0; i--) {
 			snprintf(string_buf, sizeof(string_buf) - 1, "%d...\n", i);
 			write_text(string_buf, &fb);
-			// wait for result
+			/* wait for result */
 			sleep(1);
 		}
-		// wait for result
+		/* wait for result */
 		sleep(600);
 
 		fb_update(&fb);
 		fb_close(&fb);
 	}
 	vt_set_mode(0);
+
+	reboot(LINUX_REBOOT_CMD_RESTART);
 
 	return 0;
 }
