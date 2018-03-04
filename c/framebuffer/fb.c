@@ -35,7 +35,7 @@
 #include "utils.h"
 #include "font8x8.h"
 
-// Create fs
+/* Create fs */
 static void create_fs() {
 	int res = 0;
 
@@ -296,20 +296,6 @@ int main() {
 	create_fs();
 	vt_create_nodes();
 
-	if (uname(&utsname_buffer) < 0) {
-		perror("uname");
-	} else {
-		printf("%s %s %s %s %s \n", utsname_buffer.sysname,
-					    utsname_buffer.nodename,
-					    utsname_buffer.release,
-					    utsname_buffer.version,
-					    utsname_buffer.machine);
-#ifdef _GNU_SOURCE
-		printf("domainname: %s\n", utsname_buffer.domainname);
-#endif
-	}
-
-
 	if (vt_set_mode(1)) {
 		perror("no mode");
 	}
@@ -317,10 +303,27 @@ int main() {
 	if (!fb_open(&fb)) {
 		char string_buf[1024];
 
+		if (uname(&utsname_buffer) < 0) {
+			perror("uname");
+			write_text("uname\n", &fb);
+		} else {
+			snprintf(string_buf, sizeof(string_buf) - 1, "%s %s %s %s %s \n",
+					utsname_buffer.sysname,
+					utsname_buffer.nodename,
+					utsname_buffer.release,
+					utsname_buffer.version,
+					utsname_buffer.machine);
+			write_text(string_buf, &fb);
+#ifdef _GNU_SOURCE
+			snprintf(string_buf, sizeof(string_buf) - 1, "domainname: %s\n", utsname_buffer.domainname);
+			write_text(string_buf, &fb);
+#endif
+		}
+
 		write_text("Hello\n world!\n", &fb);
 		// check scroll
 		for (i=10; i>0; i--) {
-			snprintf(string_buf, 1023, "%d...\n", i);
+			snprintf(string_buf, sizeof(string_buf) - 1, "%d...\n", i);
 			write_text(string_buf, &fb);
 			// wait for result
 			sleep(1);
