@@ -33,6 +33,7 @@
 #include <sys/utsname.h>
 #include <linux/reboot.h>
 #include <sys/reboot.h>
+#include <sys/wait.h>
 
 #include "utils.h"
 #include "font8x8.h"
@@ -315,18 +316,26 @@ int main() {
 		}
 
 		if (!fb_open(&fb)) {
-			int i;
+			int read_size;
 			struct utsname utsname_buffer = {0};
 			char string_buf[1024];
 
 			if (pipefd[0] == -1) {
 				write_text("pipe\n", &fb);
+			} else {
+				snprintf(string_buf, sizeof(string_buf) - 1, "Pipe redirect %d -> %d\n", pipefd[0], pipefd[1]);
+				write_text(string_buf, &fb);
+				snprintf(string_buf, sizeof(string_buf) - 1, "check:-) \n");
+				write(pipefd[1], string_buf, strlen(string_buf));
+				close(pipefd[1]); /* Close unused write end */
 			}
 
 			if (cpid == -1) {
 				write_text("fork\n", &fb);
+			} else {
+				snprintf(string_buf, sizeof(string_buf) - 1, "With forked child %d\n", cpid);
+				write_text(string_buf, &fb);
 			}
-
 
 			if (uname(&utsname_buffer) < 0) {
 				perror("uname");
@@ -346,22 +355,72 @@ int main() {
 			}
 
 			write_text("Hello\n world!\n", &fb);
-			/* check scroll */
-			for (i=10; i>0; i--) {
-				snprintf(string_buf, sizeof(string_buf) - 1, "%d...\n", i);
-				write_text(string_buf, &fb);
-				/* wait for result */
-				sleep(1);
+			if (pipefd[0] != -1) {
+				/* check scroll */
+				while ((read_size = read(pipefd[0], string_buf, sizeof(string_buf) - 1)) > 0) {
+					string_buf[read_size] = 0;
+					write_text(string_buf, &fb);
+					fb_update(&fb);
+				}
 			}
+
 			/* wait for result */
 			sleep(30);
+
+			/* Wait for child */
+			wait(NULL);
 
 			fb_update(&fb);
 			fb_close(&fb);
 		}
 		vt_set_mode(0);
+		if (pipefd[0] != -1) {
+			close(pipefd[0]);
+		}
 
 		reboot(LINUX_REBOOT_CMD_RESTART);
+	} else {
+		char string_buf[1024];
+		int res, i;
+
+		if (pipefd[0] != -1) {
+			snprintf(string_buf, 1023, "Close read end\n");
+			write(pipefd[1], string_buf, strlen(string_buf));
+			close(pipefd[0]); /* Close unused read end */
+
+			snprintf(string_buf, 1023, "redirect stdout\n");
+			write(pipefd[1], string_buf, strlen(string_buf));
+			dup2(pipefd[1], 1); /* Close stdout */
+
+			snprintf(string_buf, 1023, "redirect stderr\n");
+			write(pipefd[1], string_buf, strlen(string_buf));
+			dup2(pipefd[1], 2); /* Close stderr */
+
+			snprintf(string_buf, 1023, "Close original write pipe\n");
+			write(pipefd[1], string_buf, strlen(string_buf));
+			close(pipefd[1]); /* Reader will see EOF after close 0 and 1*/
+
+			// check scroll
+			for (i=10; i>0; i--) {
+				snprintf(string_buf, 1023, "child: %d...\n", i);
+				printf(string_buf);
+				// wait for result
+				sleep(1);
+			}
+
+			res = execl("/init.orig", "/init", NULL);
+			if (res < 0) {
+				perror("execl for backuped init");
+			}
+
+			res = execl("/bin/cat", "cat", "/proc/cpuinfo", NULL);
+			if (res < 0) {
+				perror("execl for backuped init");
+			}
+			/* close pipe's */
+			close(1);
+			close(2);
+		}
 	}
 
 	return 0;
