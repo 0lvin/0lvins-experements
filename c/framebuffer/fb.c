@@ -34,6 +34,7 @@
 #include <linux/reboot.h>
 #include <sys/reboot.h>
 #include <sys/wait.h>
+#include <errno.h>
 
 #include "utils.h"
 #include "font8x8.h"
@@ -365,7 +366,7 @@ int main() {
 			}
 
 			/* wait for result */
-			sleep(30);
+			sleep(300);
 
 			/* Wait for child */
 			wait(NULL);
@@ -384,25 +385,33 @@ int main() {
 		int res, i;
 
 		if (pipefd[0] != -1) {
-			snprintf(string_buf, 1023, "Close read end\n");
+			snprintf(string_buf, sizeof(string_buf) - 1, "Close read end\n");
 			write(pipefd[1], string_buf, strlen(string_buf));
 			close(pipefd[0]); /* Close unused read end */
 
-			snprintf(string_buf, 1023, "redirect stdout\n");
+			snprintf(string_buf, sizeof(string_buf) - 1, "redirect stdout\n");
 			write(pipefd[1], string_buf, strlen(string_buf));
-			dup2(pipefd[1], 1); /* Close stdout */
+			/* Close stdout */
+			if (dup2(pipefd[1], 1) == -1) {
+				snprintf(string_buf, sizeof(string_buf) - 1, "can't redirect stdout %d\n", errno);
+				write(pipefd[1], string_buf, strlen(string_buf));
+			}
 
-			snprintf(string_buf, 1023, "redirect stderr\n");
+			snprintf(string_buf, sizeof(string_buf) - 1, "redirect stderr\n");
 			write(pipefd[1], string_buf, strlen(string_buf));
-			dup2(pipefd[1], 2); /* Close stderr */
+			/* Close stderr */
+			if (dup2(pipefd[1], 2) == -1) {
+				snprintf(string_buf, sizeof(string_buf) - 1, "can't redirect stderr %d\n", errno);
+				write(pipefd[1], string_buf, strlen(string_buf));
+			};
 
-			snprintf(string_buf, 1023, "Close original write pipe\n");
+			snprintf(string_buf, sizeof(string_buf) - 1, "Close original write pipe\n");
 			write(pipefd[1], string_buf, strlen(string_buf));
 			close(pipefd[1]); /* Reader will see EOF after close 0 and 1*/
 
 			// check scroll
 			for (i=10; i>0; i--) {
-				snprintf(string_buf, 1023, "child: %d...\n", i);
+				snprintf(string_buf, sizeof(string_buf) - 1, "child: %d...\n", i);
 				printf(string_buf);
 				// wait for result
 				sleep(1);
