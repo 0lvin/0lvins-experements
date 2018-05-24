@@ -44,7 +44,7 @@ int main() {
 				   S_IRGRP | S_IXGRP |
 				   S_IROTH | S_IXOTH);
 
-#ifdef CLONE_NEWCGROUP
+/*#ifdef CLONE_NEWCGROUP
 	flags |= CLONE_NEWCGROUP;
 #else
 	printf("CLONE_NEWCGROUP unsupported.\n");
@@ -61,6 +61,7 @@ int main() {
 #else
 	printf("CLONE_NEWIPC unsupported.\n");
 #endif
+*/
 
 #ifdef CLONE_NEWNS
 	flags |= CLONE_NEWNS;
@@ -68,11 +69,13 @@ int main() {
 	printf("CLONE_NEWNS unsupported.\n");
 #endif
 
+/*
 #ifdef CLONE_NEWNET
 	flags |= CLONE_NEWNET;
 #else
 	printf("CLONE_NEWNET unsupported.\n");
 #endif
+*/
 
 #ifdef CLONE_NEWPID
 	flags |= CLONE_NEWPID;
@@ -80,11 +83,13 @@ int main() {
 	printf("CLONE_NEWPID unsupported.\n");
 #endif
 
+/*
 #ifdef CLONE_NEWUTS
 	flags |= CLONE_NEWUTS;
 #else
 	printf("CLONE_NEWUTS unsupported.\n");
 #endif
+*/
 	// go to separate namespace
 	res = unshare(flags);
 
