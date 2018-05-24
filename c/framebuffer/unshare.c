@@ -55,13 +55,13 @@ int main() {
 #else
 	printf("CLONE_NEWUSER unsupported.\n");
 #endif
+*/
 
 #ifdef CLONE_NEWIPC
 	flags |= CLONE_NEWIPC;
 #else
 	printf("CLONE_NEWIPC unsupported.\n");
 #endif
-*/
 
 #ifdef CLONE_NEWNS
 	flags |= CLONE_NEWNS;
@@ -83,13 +83,12 @@ int main() {
 	printf("CLONE_NEWPID unsupported.\n");
 #endif
 
-/*
 #ifdef CLONE_NEWUTS
 	flags |= CLONE_NEWUTS;
 #else
 	printf("CLONE_NEWUTS unsupported.\n");
 #endif
-*/
+
 	// go to separate namespace
 	res = unshare(flags);
 
@@ -152,6 +151,16 @@ int main() {
 	if (res < 0) {
 		perror("mount dev");
 		return 0;
+	}
+
+	res = setresgid(999, 999, 999);
+	if (res < 0) {
+		perror("setgid to nobody");
+	}
+
+	res = setresuid(65534, 65534, 65534);
+	if (res < 0) {
+		perror("setuid to nobody");
 	}
 
 	res = execl("/bin/sh", "/bin/sh", NULL);
