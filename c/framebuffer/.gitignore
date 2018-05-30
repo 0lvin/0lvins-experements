@@ -2,3 +2,4 @@ init
 setns
 unshare
 arm-check
+uname
