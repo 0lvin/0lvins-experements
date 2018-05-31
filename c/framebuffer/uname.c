@@ -21,6 +21,8 @@ int main() {
 	struct utsname utsname_buffer = {0};
 	char buffer[1024];
 
+	snprintf(buffer, sizeof(buffer)-1, "%p\n", buffer);
+	write(1, buffer, strlen(buffer));
 	if (uname(&utsname_buffer) < 0) {
 		snprintf(buffer, sizeof(buffer)-1 , "Can't run uname!");
 	} else {

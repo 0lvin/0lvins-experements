@@ -3,3 +3,4 @@ setns
 unshare
 arm-check
 uname
+trace
