@@ -14,31 +14,36 @@ echo "I am in ${PWD}"
 if [ ! -d "${PWD}/u-boot" ]; then
     git clone -b release https://github.com/FireflyTeam/u-boot
 fi;
-cd "${PWD}/u-boot" && git pull && cd "${PWD}"
+cd "${PWD}/u-boot" && git pull
+cd "${PWD}"
 
 # Kernel
 if [ ! -d "${PWD}/kernel" ]; then
     git clone -b release-4.4 https://github.com/FireflyTeam/kernel
 fi;
-cd "${PWD}/kernel" && git pull && cd "${PWD}"
+cd "${PWD}/kernel" && git pull
+cd "${PWD}"
 
 # Build
 if [ ! -d "${PWD}/build" ]; then
     git clone -b debian https://github.com/FireflyTeam/build
 fi;
-cd "${PWD}/build" && git pull && cd "${PWD}"
+cd "${PWD}/build" && git pull
+cd "${PWD}"
 
 # Rkbin
 if [ ! -d "${PWD}/rkbin" ]; then
     git clone -b master https://github.com/FireflyTeam/rkbin
 fi;
-cd "${PWD}/rkbin" && git pull && cd "${PWD}"
+cd "${PWD}/rkbin" && git pull
+cd "${PWD}"
 
 # Root fs
 if [ ! -d "${PWD}/rk-rootfs-build" ]; then
     git clone https://github.com/FireflyTeam/rk-rootfs-build.git
 fi;
-cd "${PWD}/rk-rootfs-build" && git pull && cd "${PWD}"
+cd "${PWD}/rk-rootfs-build" && git pull
+cd "${PWD}"
 
 # build
 ./build/board_configs.sh roc-rk3328-cc
@@ -50,5 +55,6 @@ sudo apt-get install -f -y
 
 cd "${PWD}/rk-rootfs-build"
 VERSION=stretch TARGET=desktop ARCH=armhf ./mk-base-debian.sh
+cd "${PWD}"
 
 #### http://wiki.t-firefly.com/ROC-RK3328-CC/linux_build_rootfilesystem.html
