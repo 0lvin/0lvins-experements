@@ -353,11 +353,91 @@ decode_block_info(uint8_t* block, struct TexelWeightParams* params) {
     return false;
 }
 
+static void
+fill_error(uint8_t* my_res, int height, int width)
+{
+
+    for(int j = 0; j < height; j++) {
+	for(int i = 0; i < width; i++) {
+		my_res[(j * width + i) * 4 + 0] = 0xFF;
+		my_res[(j * width + i) * 4 + 1] = 0xFF;
+		my_res[(j * width + i) * 4 + 2] = 0x00;
+		my_res[(j * width + i) * 4 + 3] = 0xFF;
+	}
+    }
+}
+
+void FillVoidExtentLDR(uint8_t* block, uint8_t* my_res, int height, int width){
+
+    // Decode the RGBA components and renormalize them to the range [0, 255]
+    uint32_t r = extract_bits(block, 64, 16);
+    uint32_t g = extract_bits(block, 80, 16);
+    uint32_t b = extract_bits(block, 96, 16);
+    uint32_t a = extract_bits(block, 112, 16);
+
+    uint32_t rgba = (r >> 8) | (g & 0xFF00) | (b & 0xFF00) << 8
+      | (a & 0xFF00) << 16;
+
+    for (uint32_t j = 0; j < height; j++)
+    for (uint32_t i = 0; i < width; i++) {
+      my_res[(j * width + i) * 4 + 0] = extract_bits((uint8_t*)&rgba, 0, 8);
+      my_res[(j * width + i) * 4 + 1] = extract_bits((uint8_t*)&rgba, 8, 8);
+      my_res[(j * width + i) * 4 + 2] = extract_bits((uint8_t*)&rgba, 16, 8);
+      my_res[(j * width + i) * 4 + 3] = extract_bits((uint8_t*)&rgba, 24, 8);
+    }
+}
+
+static void
+decompress_block(uint8_t *in_buf, uint8_t* my_res, int height, int width){
+   struct TexelWeightParams weight = {0};
+
+   if (decode_block_info(in_buf, &weight)) {
+       fill_error(my_res, height, width);
+       return;
+   }
+
+   printf("width %d, height %d, dual_plane %d, max_weight %d, void_extentLDR %d, void_extentHDR %d\n",
+	  weight.width, weight.height, weight.dual_plane,
+	  weight.max_weight, weight.void_extentLDR, weight.void_extentHDR);
+
+
+   if (weight.void_extentLDR) {
+     FillVoidExtentLDR(in_buf, my_res, width, height);
+     return;
+   }
+
+   if (weight.void_extentHDR) {
+     printf("HDR void extent blocks are unsupported!");
+     fill_error(my_res, height, width);
+     return;
+   }
+
+    if(weight.width > width) {
+      printf("Texel weight grid width should be smaller than block width");
+      fill_error(my_res, width, height);
+      return;
+    }
+
+    if(weight.height > height) {
+      printf("Texel weight grid height should be smaller than block height");
+      fill_error(my_res, height, width);
+      return;
+    }
+
+    // Read num partitions
+    uint32_t nPartitions = extract_bits(my_res, 11, 2) + 1;
+
+    if(nPartitions == 4 && weight.dual_plane) {
+      printf("Dual plane mode is incompatible with four partition blocks");
+      fill_error(my_res, height, width);
+      return;
+    }
+}
+
 //checks
 int height = 4;
 int width = 4;
 int main() {
-   struct TexelWeightParams weight = {0};
    int x, y;
 
    printf("Initial: \n");
@@ -365,11 +445,7 @@ int main() {
       printf("0x%x ", in_buf[x]&0xFF);
    }
 
-   printf("\nresult 0x%x\n", decode_block_info(in_buf, &weight));
-
-   printf("width %d, height %d, dual_plane %d, max_weight %d, void_extentLDR %d, void_extentHDR %d\n",
-	  weight.width, weight.height, weight.dual_plane,
-	  weight.max_weight, weight.void_extentLDR, weight.void_extentHDR);
+  decompress_block(in_buf, my_res, height, width);
 
    printf("\nResult:\n");
    for(y=0; y<height; y++) {
