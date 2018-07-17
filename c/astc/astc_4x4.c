@@ -3,21 +3,22 @@
 #include <string.h>
 
 // mesa
-#define uint8_t char
+#define uint8_t unsigned char
 #define bool char
 #define uint32_t int
+#define uint16_t short
 #define false 0
 #define true 1
 #define MIN2( A, B )   ( (A)<(B) ? (A) : (B) )
 
 // input
-char in_buf[] = {0x53, 0x88, 0x9, 0xcc, 0xdd, 0x77, 0x79, 0xbf, 0xdf, 0xde, 0xff, 0xde, 0xfd, 0xdf, 0x27, 0x80};
-char out_buf[16 * 4] = {
+uint8_t in_buf[] = {0x53, 0x88, 0x9, 0xcc, 0xdd, 0x77, 0x79, 0xbf, 0xdf, 0xde, 0xff, 0xde, 0xfd, 0xdf, 0x27, 0x80};
+uint8_t out_buf[16 * 4] = {
    0x60,0x73,0x70,0xff, 0x5b,0x6d,0x6b,0xff, 0x5c,0x6e,0x7d,0xff, 0x64,0x78,0x88,0xff,
    0x5b,0x6d,0x6b,0xff, 0x5c,0x6e,0x7d,0xff, 0x64,0x78,0x88,0xff, 0x78,0x8f,0x8d,0xff,
    0x5c,0x6e,0x7d,0xff, 0x64,0x78,0x88,0xff, 0x78,0x8f,0x8d,0xff, 0x7a,0x92,0xa5,0xff,
    0x64,0x78,0x88,0xff, 0x78,0x8f,0x8d,0xff, 0x7a,0x92,0xa5,0xff, 0x76,0x8d,0x9f,0xff};
-char my_res[16 * 4] = {0};
+uint8_t my_res[16 * 4] = {0};
 
 // copy of bptc
 static int
@@ -148,6 +149,36 @@ select_partition(int seed, int x, int y, int z,
    }
 }
 
+static void
+bit_transfer_signed(uint16_t* a, uint16_t* b)
+{
+    *b >>= 1;
+    *b |= *a & 0x80;
+    *a >>= 1;
+    *a &= 0x3F;
+    if( (*a&0x20)!=0 ) *a-=0x40;
+}
+
+/*
+color blue_contract(int r, int g, int b, int a)
+{
+    color c;
+    c.r = (r+b) >> 1;
+    c.g = (g+b) >> 1;
+    c.b = b;
+    c.a = a;
+    return c;
+}
+
+void clamp_unorm8(color c)
+{
+    if(c.r < 0) {c.r=0;} else if(c.r > 255) {c.r=255;}
+    if(c.g < 0) {c.g=0;} else if(c.g > 255) {c.g=255;}
+    if(c.b < 0) {c.b=0;} else if(c.b > 255) {c.b=255;}
+    if(c.a < 0) {c.a=0;} else if(c.a > 255) {c.a=255;}
+}
+*/
+
 // from TC
 struct TexelWeightParams {
    uint32_t width;
@@ -172,12 +203,12 @@ decode_block_info(uint8_t* block, struct TexelWeightParams* params) {
         params->void_extentHDR = true;
       } else {
         params->void_extentLDR = true;
-	params->void_extentHDR = false;
+        params->void_extentHDR = false;
       }
 
       // Next two bits must be one.
       if (!(modeBits & 0x400) || !extract_bits(block, 11, 1)) {
-	  return true;
+          return true;
       }
 
       return false;
@@ -185,14 +216,14 @@ decode_block_info(uint8_t* block, struct TexelWeightParams* params) {
 
     // First check if the last four bits are zero
     if((modeBits & 0xF) == 0) {
-	return true;
+        return true;
     }
 
     // If the last two bits are zero, then if bits
     // [6-8] are all ones, this is also reserved.
     if((modeBits & 0x3) == 0 &&
        (modeBits & 0x1C0) == 0x1C0) {
-	   return true;
+           return true;
     }
 
     // Otherwise, there is no error... Figure out the layout
@@ -358,12 +389,12 @@ fill_error(uint8_t* my_res, int height, int width)
 {
 
     for(int j = 0; j < height; j++) {
-	for(int i = 0; i < width; i++) {
-		my_res[(j * width + i) * 4 + 0] = 0xFF;
-		my_res[(j * width + i) * 4 + 1] = 0xFF;
-		my_res[(j * width + i) * 4 + 2] = 0x00;
-		my_res[(j * width + i) * 4 + 3] = 0xFF;
-	}
+        for(int i = 0; i < width; i++) {
+                my_res[(j * width + i) * 4 + 0] = 0xFF;
+                my_res[(j * width + i) * 4 + 1] = 0xFF;
+                my_res[(j * width + i) * 4 + 2] = 0x00;
+                my_res[(j * width + i) * 4 + 3] = 0xFF;
+        }
     }
 }
 
@@ -397,8 +428,8 @@ decompress_block(uint8_t *in_buf, uint8_t* my_res, int height, int width){
    }
 
    printf("width %d, height %d, dual_plane %d, max_weight %d, void_extentLDR %d, void_extentHDR %d\n",
-	  weight.width, weight.height, weight.dual_plane,
-	  weight.max_weight, weight.void_extentLDR, weight.void_extentHDR);
+          weight.width, weight.height, weight.dual_plane,
+          weight.max_weight, weight.void_extentLDR, weight.void_extentHDR);
 
 
    if (weight.void_extentLDR) {
@@ -425,13 +456,42 @@ decompress_block(uint8_t *in_buf, uint8_t* my_res, int height, int width){
     }
 
     // Read num partitions
-    uint32_t nPartitions = extract_bits(my_res, 11, 2) + 1;
+    uint32_t nPartitions = extract_bits(in_buf, 11, 2) + 1;
 
     if(nPartitions == 4 && weight.dual_plane) {
       printf("Dual plane mode is incompatible with four partition blocks");
       fill_error(my_res, height, width);
       return;
     }
+
+    // Based on the number of partitions, read the color endpoint mode for
+    // each partition.
+
+    // Determine partitions, partition index, and color endpoint modes
+    int planeIdx = -1;
+    uint32_t partitionIndex;
+    uint32_t colorEndpointMode[4] = {0, 0, 0, 0};
+
+    // Define color data.
+    uint8_t colorEndpointData[16];
+    memset(colorEndpointData, 0, sizeof(colorEndpointData));
+
+    // Read extra config data...
+    uint32_t baseCEM = 0;
+    if(nPartitions == 1) {
+      colorEndpointMode[0] = extract_bits(in_buf, 13, 4);
+      partitionIndex = 0;
+    } else {
+      partitionIndex = extract_bits(in_buf, 13, 10);
+      baseCEM = extract_bits(in_buf, 23, 6);
+    }
+    uint32_t baseMode = (baseCEM & 3);
+
+    printf("nPartitions=0x%x, baseMode=0x%x, baseCEM=0x%x, partitionIndex=0x%x, colorEndpointMode=0x%x \n ",
+           nPartitions, baseMode, baseCEM, partitionIndex, colorEndpointMode[0]);
+
+    // Remaining bits are color endpoint data...
+    fill_error(my_res, height, width);
 }
 
 //checks
@@ -445,7 +505,7 @@ int main() {
       printf("0x%x ", in_buf[x]&0xFF);
    }
 
-  decompress_block(in_buf, my_res, height, width);
+   decompress_block(in_buf, my_res, height, width);
 
    printf("\nResult:\n");
    for(y=0; y<height; y++) {
