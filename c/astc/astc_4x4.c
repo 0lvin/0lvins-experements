@@ -630,6 +630,46 @@ decompress_block(uint8_t *block, uint8_t* my_res, int height, int width) {
     }
 
     dump(colorEndpointData, 16);
+    // Read the plane selection bits
+    planeIdx = extract_bits(block, readBits, planeSelectorBits);
+    readBits += planeSelectorBits;
+
+    // Read the rest of the CEM
+    if(baseMode) {
+      uint32_t extraCEM = extract_bits(block, readBits, extraCEMbits);
+      readBits += extraCEMbits;
+
+      uint32_t CEM = (extraCEM << 6) | baseCEM;
+      CEM >>= 2;
+
+      bool C[4] = { 0 };
+      for(uint32_t i = 0; i < nPartitions; i++) {
+        C[i] = CEM & 1;
+        CEM >>= 1;
+      }
+
+      uint8_t M[4] = { 0 };
+      for(uint32_t i = 0; i < nPartitions; i++) {
+        M[i] = CEM & 3;
+        CEM >>= 2;
+	// assert M[i] <= 3;
+      }
+
+      for(uint32_t i = 0; i < nPartitions; i++) {
+        colorEndpointMode[i] = baseMode;
+        if(!(C[i])) colorEndpointMode[i] -= 1;
+        colorEndpointMode[i] <<= 2;
+        colorEndpointMode[i] |= M[i];
+      }
+    } else if(nPartitions > 1) {
+      uint32_t CEM = baseCEM >> 2;
+      for(uint32_t i = 0; i < nPartitions; i++) {
+        colorEndpointMode[i] = CEM;
+      }
+    }
+
+    dump(colorEndpointMode, 16);
+    // Make sure everything up till here is sane.
 
     fill_error(my_res, height, width);
 }
