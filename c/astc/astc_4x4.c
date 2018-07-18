@@ -189,6 +189,94 @@ struct TexelWeightParams {
    bool void_extentHDR;
 };
 
+uint32_t get_num_weight_values(struct TexelWeightParams* params) {
+   uint32_t ret = params->width * params->height;
+   if(params->dual_plane) {
+      ret *= 2;
+   }
+   return ret;
+}
+
+enum EIntegerEncoding {
+    IntegerEncoding_Bits,
+    IntegerEncoding_Quint,
+    IntegerEncoding_Trit
+};
+
+struct IntegerEncodedValue {
+    enum EIntegerEncoding m_Encoding;
+    uint32_t m_NumBits;
+    uint32_t m_BitValue;
+    uint32_t m_QuintValue;
+    uint32_t m_TritValue;
+};
+
+// Count the number of bits set in a number.
+static uint32_t Popcnt(uint32_t n) {
+   uint32_t c;
+   for(c = 0; n; c++) {
+      n &= n-1;
+   }
+   return c;
+}
+
+static void CreateEncoding(uint32_t maxVal, struct IntegerEncodedValue* value) {
+    while(maxVal > 0) {
+      uint32_t check = maxVal + 1;
+
+      // Is maxVal a power of two?
+      if(!(check & (check - 1))) {
+	  value->m_Encoding = IntegerEncoding_Bits;
+	  value->m_NumBits = Popcnt(maxVal);
+	  return;
+      }
+
+      // Is maxVal of the type 3*2^n - 1?
+      if((check % 3 == 0) && !((check/3) & ((check/3) - 1))) {
+	  value->m_Encoding = IntegerEncoding_Trit;
+	  value->m_NumBits = Popcnt(check/3 - 1);
+	  return;
+      }
+
+      // Is maxVal of the type 5*2^n - 1?
+      if((check % 5 == 0) && !((check/5) & ((check/5) - 1))) {
+	  value->m_Encoding = IntegerEncoding_Quint;
+	  value->m_NumBits = Popcnt(check/5 - 1);
+	  return;
+      }
+
+      // Apparently it can't be represented with a bounded integer sequence...
+      // just iterate.
+      maxVal--;
+    }
+    value->m_Encoding = IntegerEncoding_Bits;
+    value->m_NumBits = 0;
+}
+
+uint32_t GetBitLength(uint32_t nVals, struct IntegerEncodedValue* value) {
+    uint32_t totalBits = value->m_NumBits * nVals;
+    if(value->m_Encoding == IntegerEncoding_Trit) {
+      totalBits += (nVals * 8 + 4) / 5;
+    } else if(value->m_Encoding == IntegerEncoding_Quint) {
+      totalBits += (nVals * 7 + 2) / 3;
+    }
+    return totalBits;
+}
+
+uint32_t GetPackedBitSize(struct TexelWeightParams* params) {
+  uint32_t check = 0;
+
+  // How many indices do we have?
+  uint32_t nIdxs = get_num_weight_values(params);
+
+  struct IntegerEncodedValue value;
+  CreateEncoding(params->max_weight, &value);
+
+  check = GetBitLength(nIdxs, &value);
+  printf("\nMaxWeight %d nIdxs %d check %d\n", params->max_weight, nIdxs, check);
+  return check;
+}
+
 static bool
 decode_block_info(uint8_t* block, struct TexelWeightParams* params) {
     // Read the entire block mode all at once
@@ -419,10 +507,10 @@ void FillVoidExtentLDR(uint8_t* block, uint8_t* my_res, int height, int width){
 }
 
 static void
-decompress_block(uint8_t *in_buf, uint8_t* my_res, int height, int width){
+decompress_block(uint8_t *block, uint8_t* my_res, int height, int width) {
    struct TexelWeightParams weight = {0};
 
-   if (decode_block_info(in_buf, &weight)) {
+   if (decode_block_info(block, &weight)) {
        fill_error(my_res, height, width);
        return;
    }
@@ -433,7 +521,7 @@ decompress_block(uint8_t *in_buf, uint8_t* my_res, int height, int width){
 
 
    if (weight.void_extentLDR) {
-     FillVoidExtentLDR(in_buf, my_res, width, height);
+     FillVoidExtentLDR(block, my_res, width, height);
      return;
    }
 
@@ -456,7 +544,7 @@ decompress_block(uint8_t *in_buf, uint8_t* my_res, int height, int width){
     }
 
     // Read num partitions
-    uint32_t nPartitions = extract_bits(in_buf, 11, 2) + 1;
+    uint32_t nPartitions = extract_bits(block, 11, 2) + 1;
 
     if(nPartitions == 4 && weight.dual_plane) {
       printf("Dual plane mode is incompatible with four partition blocks");
@@ -478,12 +566,15 @@ decompress_block(uint8_t *in_buf, uint8_t* my_res, int height, int width){
 
     // Read extra config data...
     uint32_t baseCEM = 0;
+    uint32_t remainingBits = 128;
     if(nPartitions == 1) {
-      colorEndpointMode[0] = extract_bits(in_buf, 13, 4);
+      colorEndpointMode[0] = extract_bits(block, 13, 4);
       partitionIndex = 0;
+      remainingBits -= 17;
     } else {
-      partitionIndex = extract_bits(in_buf, 13, 10);
-      baseCEM = extract_bits(in_buf, 23, 6);
+      partitionIndex = extract_bits(block, 13, 10);
+      baseCEM = extract_bits(block, 23, 6);
+      remainingBits -= 29;
     }
     uint32_t baseMode = (baseCEM & 3);
 
@@ -491,6 +582,10 @@ decompress_block(uint8_t *in_buf, uint8_t* my_res, int height, int width){
            nPartitions, baseMode, baseCEM, partitionIndex, colorEndpointMode[0]);
 
     // Remaining bits are color endpoint data...
+    uint32_t nWeightBits = GetPackedBitSize(&weight);
+    remainingBits -= nWeightBits;
+    printf("\nremainingBits=%d, nWeightBits=%d\n", remainingBits, nWeightBits);
+
     fill_error(my_res, height, width);
 }
 
