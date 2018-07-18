@@ -506,6 +506,15 @@ void FillVoidExtentLDR(uint8_t* block, uint8_t* my_res, int height, int width){
     }
 }
 
+static void dump(uint8_t* data, uint32_t size) {
+   uint32_t x;
+   printf("\n");
+   for(x=0; x<size; x++) {
+      printf("0x%x ", data[x]&0xFF);
+   }
+   printf("\n");
+}
+
 static void
 decompress_block(uint8_t *block, uint8_t* my_res, int height, int width) {
    struct TexelWeightParams weight = {0};
@@ -567,16 +576,19 @@ decompress_block(uint8_t *block, uint8_t* my_res, int height, int width) {
     // Read extra config data...
     uint32_t baseCEM = 0;
     uint32_t remainingBits = 128;
+    uint32_t readBits = 0;
     if(nPartitions == 1) {
       colorEndpointMode[0] = extract_bits(block, 13, 4);
       partitionIndex = 0;
-      remainingBits -= 17;
+      readBits = 17;
     } else {
       partitionIndex = extract_bits(block, 13, 10);
       baseCEM = extract_bits(block, 23, 6);
-      remainingBits -= 29;
+      readBits = 29;
     }
+
     uint32_t baseMode = (baseCEM & 3);
+    remainingBits -= readBits;
 
     printf("nPartitions=0x%x, baseMode=0x%x, baseCEM=0x%x, partitionIndex=0x%x, colorEndpointMode=0x%x \n ",
            nPartitions, baseMode, baseCEM, partitionIndex, colorEndpointMode[0]);
@@ -585,6 +597,39 @@ decompress_block(uint8_t *block, uint8_t* my_res, int height, int width) {
     uint32_t nWeightBits = GetPackedBitSize(&weight);
     remainingBits -= nWeightBits;
     printf("\nremainingBits=%d, nWeightBits=%d\n", remainingBits, nWeightBits);
+
+    // Consider extra bits prior to texel data...
+    uint32_t extraCEMbits = 0;
+    if(baseMode) {
+      switch(nPartitions) {
+      case 2: extraCEMbits += 2; break;
+      case 3: extraCEMbits += 5; break;
+      case 4: extraCEMbits += 8; break;
+      default: /*wrong partitions bits*/ break;
+      }
+    }
+    remainingBits -= extraCEMbits;
+
+    // Do we have a dual plane situation?
+    uint32_t planeSelectorBits = 0;
+    if(weight.dual_plane) {
+      planeSelectorBits = 2;
+    }
+    remainingBits -= planeSelectorBits;
+
+    // Read color data...
+    uint32_t colorDataBits = remainingBits;
+    uint32_t out_pos = 0;
+    while(remainingBits > 0) {
+      uint32_t nb = MIN2(remainingBits, 8);
+      uint32_t b = extract_bits(block, readBits, nb);
+      colorEndpointData[out_pos] = b & 0xFF;
+      out_pos++;
+      readBits += nb;
+      remainingBits -= nb;
+    }
+
+    dump(colorEndpointData, 16);
 
     fill_error(my_res, height, width);
 }
@@ -595,10 +640,8 @@ int width = 4;
 int main() {
    int x, y;
 
-   printf("Initial: \n");
-   for(x=0; x<16; x++) {
-      printf("0x%x ", in_buf[x]&0xFF);
-   }
+   printf("Initial:");
+   dump(in_buf, 16);
 
    decompress_block(in_buf, my_res, height, width);
 
