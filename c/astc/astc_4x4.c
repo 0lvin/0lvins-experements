@@ -278,7 +278,7 @@ uint32_t GetPackedBitSize(struct TexelWeightParams* params) {
 }
 
 static bool
-decode_block_info(uint8_t* block, struct TexelWeightParams* params) {
+DecodeBlockInfo(uint8_t* block, struct TexelWeightParams* params) {
     // Read the entire block mode all at once
     uint32_t modeBits = extract_bits(block, 0, 11);
 
@@ -473,7 +473,7 @@ decode_block_info(uint8_t* block, struct TexelWeightParams* params) {
 }
 
 static void
-fill_error(uint8_t* my_res, int height, int width)
+FillError(uint8_t* my_res, int height, int width)
 {
 
     for(int j = 0; j < height; j++) {
@@ -486,7 +486,8 @@ fill_error(uint8_t* my_res, int height, int width)
     }
 }
 
-void FillVoidExtentLDR(uint8_t* block, uint8_t* my_res, int height, int width){
+static void
+FillVoidExtentLDR(uint8_t* block, uint8_t* my_res, int height, int width){
 
     // Decode the RGBA components and renormalize them to the range [0, 255]
     uint32_t r = extract_bits(block, 64, 16);
@@ -506,21 +507,38 @@ void FillVoidExtentLDR(uint8_t* block, uint8_t* my_res, int height, int width){
     }
 }
 
-static void dump(uint8_t* data, uint32_t size) {
-   uint32_t x;
-   printf("\n");
-   for(x=0; x<size; x++) {
-      printf("0x%x ", data[x]&0xFF);
-   }
-   printf("\n");
+static void
+dump(uint8_t* data, uint32_t size) {
+       uint32_t x;
+       printf("\n");
+       for(x=0; x<size; x++) {
+	  printf("0x%x,", data[x]&0xFF);
+	if (x%4 == 3) {
+	    printf(" ");
+	}
+	if (x%16 == 15) {
+	    printf("\n");
+	}
+       }
+       printf("\n");
+}
+
+void DecodeColorValues(uint32_t *out, uint8_t *data, uint32_t *modes,
+                         const uint32_t nPartitions, const uint32_t nBitsForColorData) {
+    // First figure out how many color values we have
+    uint32_t nValues = 0;
+    for(uint32_t i = 0; i < nPartitions; i++) {
+      nValues += ((modes[i]>>2) + 1) << 1;
+    }
+    printf("\nnValues=%d\n", nValues);
 }
 
 static void
-decompress_block(uint8_t *block, uint8_t* my_res, int height, int width) {
+DecompressBlock(uint8_t *block, uint8_t* my_res, int height, int width) {
    struct TexelWeightParams weight = {0};
 
-   if (decode_block_info(block, &weight)) {
-       fill_error(my_res, height, width);
+   if (DecodeBlockInfo(block, &weight)) {
+       FillError(my_res, height, width);
        return;
    }
 
@@ -536,19 +554,19 @@ decompress_block(uint8_t *block, uint8_t* my_res, int height, int width) {
 
    if (weight.void_extentHDR) {
      printf("HDR void extent blocks are unsupported!");
-     fill_error(my_res, height, width);
+     FillError(my_res, height, width);
      return;
    }
 
     if(weight.width > width) {
       printf("Texel weight grid width should be smaller than block width");
-      fill_error(my_res, width, height);
+      FillError(my_res, width, height);
       return;
     }
 
     if(weight.height > height) {
       printf("Texel weight grid height should be smaller than block height");
-      fill_error(my_res, height, width);
+      FillError(my_res, height, width);
       return;
     }
 
@@ -557,7 +575,7 @@ decompress_block(uint8_t *block, uint8_t* my_res, int height, int width) {
 
     if(nPartitions == 4 && weight.dual_plane) {
       printf("Dual plane mode is incompatible with four partition blocks");
-      fill_error(my_res, height, width);
+      FillError(my_res, height, width);
       return;
     }
 
@@ -668,10 +686,16 @@ decompress_block(uint8_t *block, uint8_t* my_res, int height, int width) {
       }
     }
 
-    dump(colorEndpointMode, 16);
+    dump((uint8_t*) colorEndpointMode, 16);
     // Make sure everything up till here is sane.
+    // Decode both color data and texel weight data
+    uint32_t colorValues[32] = {}; // Four values, two endpoints, four maximum paritions
+    DecodeColorValues(colorValues, colorEndpointData, colorEndpointMode,
+                      nPartitions, colorDataBits);
+    printf("\ncolorValues\n");
+    dump((uint8_t*) colorValues, 32 * 4);
 
-    fill_error(my_res, height, width);
+    FillError(my_res, height, width);
 }
 
 //checks
@@ -683,7 +707,7 @@ int main() {
    printf("Initial:");
    dump(in_buf, 16);
 
-   decompress_block(in_buf, my_res, height, width);
+   DecompressBlock(in_buf, my_res, height, width);
 
    printf("\nResult:\n");
    for(y=0; y<height; y++) {
