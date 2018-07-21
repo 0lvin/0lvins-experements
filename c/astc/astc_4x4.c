@@ -253,6 +253,11 @@ static void CreateEncoding(uint32_t maxVal, struct IntegerEncodedValue* value) {
     value->m_NumBits = 0;
 }
 
+static bool
+MatchesEncoding(struct IntegerEncodedValue* value, struct IntegerEncodedValue* other) {
+      return value->m_Encoding == other->m_Encoding && value->m_NumBits == other->m_NumBits;
+}
+
 uint32_t GetBitLength(uint32_t nVals, struct IntegerEncodedValue* value) {
     uint32_t totalBits = value->m_NumBits * nVals;
     if(value->m_Encoding == IntegerEncoding_Trit) {
@@ -531,6 +536,30 @@ void DecodeColorValues(uint32_t *out, uint8_t *data, uint32_t *modes,
       nValues += ((modes[i]>>2) + 1) << 1;
     }
     printf("\nnValues=%d\n", nValues);
+
+    // Then based on the number of values and the remaining number of bits,
+    // figure out the max value for each of them...
+    uint32_t range = 256;
+    while(--range > 0) {
+      struct IntegerEncodedValue val = {0};
+      CreateEncoding(range, &val);
+
+      uint32_t bitLength = GetBitLength(nValues, &val);
+      if(bitLength <= nBitsForColorData) {
+        // Find the smallest possible range that matches the given encoding
+        while(--range > 0) {
+          struct IntegerEncodedValue newval = {0};
+	  CreateEncoding(range, &newval);
+          if(!MatchesEncoding(&val, &newval)) {
+            break;
+          }
+        }
+        // Return to last matching range.
+        range++;
+        break;
+      }
+    }
+    printf("\nrange=%d\n", range);
 }
 
 static void
