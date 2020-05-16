@@ -7,8 +7,10 @@ container_unshare(PyObject *self, PyObject *args)
 	int flags;
 	int res;
 
-	if (!PyArg_ParseTuple(args, "i", &flags))
-	return NULL;
+	if (!PyArg_ParseTuple(args, "i", &flags)) {
+		return NULL;
+	}
+
 	res = unshare(flags);
 	if (res < 0) {
 		return PyErr_SetFromErrno(PyExc_OSError);
@@ -28,8 +30,9 @@ initcontainer(void)
 	PyObject *m;
 
 	m = Py_InitModule("container", ContainerMethods);
-	if (m == NULL)
+	if (m == NULL) {
 		return;
+	}
 
 	PyModule_AddIntConstant(m, "CLONE_FILES", CLONE_FILES);
 	PyModule_AddIntConstant(m, "CLONE_FS", CLONE_FS);
