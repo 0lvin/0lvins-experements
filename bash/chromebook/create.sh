@@ -1,11 +1,16 @@
-mkimage -D "-I dts -O dtb -p 2048" -f kernel.its vmlinux.uimg
+mkimage -D "-I dts -O dtb -p 2048" -f kernel.its /tmp/vmlinux.uimg
 
-dd if=/dev/zero of=bootloader.bin bs=512 count=1
+dd if=/dev/zero of=/tmp/bootloader.bin bs=512 count=1
 
-echo "console=ttyS2,115200n8 earlyprintk=ttyS2,115200n8 console=tty1 init=/sbin/init root=PARTUUID=%U/PARTNROFF=1 rootwait rw noinitrd loglevel=4 delayacct" > cmdline
+echo "console=ttyS2,115200n8 earlyprintk=ttyS2,115200n8 console=tty1 init=/sbin/init root=PARTUUID=%U/PARTNROFF=1 rootwait rw noinitrd loglevel=4 delayacct" > /tmp/cmdline
 
-vbutil_kernel --pack vmlinux.kpart --version 1 --vmlinuz vmlinux.uimg --arch aarch64 --keyblock /usr/share/vboot/devkeys/kernel.keyblock --signprivate /usr/share/vboot/devkeys/kernel_data_key.vbprivk --config cmdline --bootloader bootloader.bin
+vbutil_kernel --pack /tmp/vmlinux.kpart --version 1 --vmlinuz /tmp/vmlinux.uimg --arch aarch64 --keyblock /usr/share/vboot/devkeys/kernel.keyblock --signprivate /usr/share/vboot/devkeys/kernel_data_key.vbprivk --config /tmp/cmdline --bootloader /tmp/bootloader.bin
 
-sudo dd if=/dev/zero of=/dev/mmcblk0p1
+# sudo dd if=/dev/mmcblk0p1 of=`uname -r`.img
+sudo dd bs=4096 if=/dev/disk/by-partuuid/fd6d3a79-215a-8845-8ff5-d0d7ea912df0 of=`uname -r`.img
 
-sudo dd if=vmlinux.kpart of=/dev/mmcblk0p1
+# sudo dd if=/dev/zero of=/dev/mmcblk0p1
+sudo dd bs=4096 if=/dev/zero of=/dev/disk/by-partuuid/fd6d3a79-215a-8845-8ff5-d0d7ea912df0
+
+# sudo dd if=/tmp/vmlinux.kpart of=/dev/mmcblk0p1
+sudo dd bs=4096 if=/tmp/vmlinux.kpart of=/dev/disk/by-partuuid/fd6d3a79-215a-8845-8ff5-d0d7ea912df0
