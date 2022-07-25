@@ -1,3 +1,6 @@
+# compress image before combine
+lz4 roc-rk3328-cc/arch/arm64/boot/Image --best -f
+
 mkimage -D "-I dts -O dtb -p 2048" -f kernel.its /tmp/vmlinux.uimg
 
 dd if=/dev/zero of=/tmp/bootloader.bin bs=512 count=1
