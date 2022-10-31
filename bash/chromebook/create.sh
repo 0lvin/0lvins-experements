@@ -17,3 +17,5 @@ sudo dd bs=4096 if=/dev/zero of=/dev/disk/by-partuuid/fd6d3a79-215a-8845-8ff5-d0
 
 # sudo dd if=/tmp/vmlinux.kpart of=/dev/mmcblk0p1
 sudo dd bs=4096 if=/tmp/vmlinux.kpart of=/dev/disk/by-partuuid/fd6d3a79-215a-8845-8ff5-d0d7ea912df0
+
+sleep 30 && sync
