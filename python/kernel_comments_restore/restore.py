@@ -7,12 +7,12 @@ import utils_fuzzy_logic
 def process_copy(src_file, dst_file):
     src_desc = open(src_file, 'rb')
     with src_desc:
-        src_text = src_desc.read()
+        src_text = src_desc.read().decode("utf8")
     if not src_text:
         return
     dst_desc = open(dst_file, 'rb')
     with dst_desc:
-        dst_text = utils_clean.cleanup(dst_desc.read())
+        dst_text = utils_clean.cleanup(dst_desc.read().decode("utf8"))
     if not dst_text:
         return
     src_text = utils_clean.cleanup(src_text)
@@ -20,10 +20,10 @@ def process_copy(src_file, dst_file):
     if len(dst_text) < len(src_text):
         dst_desc = open(dst_file, 'wb')
         with(dst_desc):
-            dst_desc.write(src_text)
-        print "update done: %s => %s" % (src_file, dst_file)
+            dst_desc.write(src_text.encode("utf8"))
+        print (f"update done: {src_file} => {dst_file}")
     else:
-        print "update unnecessary: %s => %s" % (src_file, dst_file)
+        print (f"update unnecessary: {src_file} => {dst_file}")
 
 
 def process_file(src_file, dst_file):
@@ -36,10 +36,12 @@ def process_file(src_file, dst_file):
             if statinfo_dst.st_size < statinfo_src.st_size:
                 process_copy(src_file, dst_file)
             else:
-                print "same %s => %s" % (src_file, dst_file)
+                print (f"same {src_file} => {dst_file}")
         else:
             utils_fuzzy_logic.optimize_head(src_file, dst_file)
             utils_fuzzy_logic.optimize_tail(src_file, dst_file)
+    else:
+        print (f"Look to {src_file} -> {dst_file}")
 
 
 def process(src_inode, dst_inode):
@@ -57,9 +59,9 @@ def process(src_inode, dst_inode):
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-        print """
+        print ("""
             usage: python restore.py linux-3.4 android_kernel_htc_z4u
             restore comments in other dir by code from origin dir
-        """
+        """)
     else:
         process(sys.argv[1], sys.argv[2])

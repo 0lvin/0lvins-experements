@@ -39,7 +39,7 @@ def get_hash(text, strip):
 
 def replace_space_at_start(text):
     splited = text.split("\n")
-    for i in xrange(len(splited)):
+    for i in range(len(splited)):
         pos = 0
         while pos < len(splited[i]) and splited[i][pos] == ' ':
             pos = pos + 1
