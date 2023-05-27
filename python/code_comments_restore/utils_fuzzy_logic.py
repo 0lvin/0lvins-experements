@@ -1,18 +1,18 @@
 import utils_clean
 
 
-def search_part_with_same_hash_head(text, hash, diff_len):
-    stop = len(hash)
+def search_part_with_same_hash_head(text, hash_text, diff_len):
+    stop = len(hash_text)
     # search start of magic
     start_hash = utils_clean.get_hash(text[:stop], False).strip()
     full_len = len(text) - diff_len
-    while start_hash != hash:
+    while start_hash != hash_text:
         if full_len <= stop:
             return None
         last_stop = stop
-        if len(hash) > len(start_hash):
+        if len(hash_text) > len(start_hash):
             # try skip difference between hashes
-            stop = stop + len(hash) - len(start_hash)
+            stop = stop + len(hash_text) - len(start_hash)
         else:
             if text[stop] not in ("/", "\n", "*"):
                 for i in range(stop, len(text)):
@@ -22,7 +22,7 @@ def search_part_with_same_hash_head(text, hash, diff_len):
             # looks like not hashable
             stop = stop + 1
         start_hash = utils_clean.get_hash(text[:stop], False).strip()
-        if start_hash[:len(hash)] == hash:
+        if start_hash[:len(hash_text)] == hash_text:
             # slowdown search
             stop = last_stop + 1
             start_hash = utils_clean.get_hash(text[:stop], False).strip()
@@ -30,16 +30,16 @@ def search_part_with_same_hash_head(text, hash, diff_len):
     return text[:stop]
 
 
-def search_part_with_same_hash_tail(text, hash, diff_len):
-    stop = len(text) - len(hash)
+def search_part_with_same_hash_tail(text, hash_text, diff_len):
+    stop = len(text) - len(hash_text)
     # search start of magic
     start_hash = utils_clean.get_hash(text[stop:], False)
-    while start_hash.strip() != hash:
+    while start_hash.strip() != hash_text:
         if stop <= diff_len:
             return None
-        if len(hash) > len(start_hash):
+        if len(hash_text) > len(start_hash):
             # try skip difference between hashes
-            stop = stop - (len(hash) - len(start_hash))
+            stop = stop - (len(hash_text) - len(start_hash))
         else:
             # looks like not hashable
             stop = stop - 1
@@ -48,17 +48,7 @@ def search_part_with_same_hash_tail(text, hash, diff_len):
     return text[stop:]
 
 
-def optimize_head(src_file, dst_file):
-    src_desc = open(src_file, 'rb')
-    with src_desc:
-        src_text = utils_clean.cleanup(src_desc.read().decode("utf8"))
-    if not src_text:
-        return
-    dst_desc = open(dst_file, 'rb')
-    with dst_desc:
-        dst_text = utils_clean.cleanup(dst_desc.read().decode("utf8"))
-    if not dst_text:
-        return
+def optimize_head(src_text, dst_text):
     src_hash = utils_clean.get_hash(src_text, True)
     dst_hash = utils_clean.get_hash(dst_text, True)
     common_hash = None
@@ -70,8 +60,7 @@ def optimize_head(src_file, dst_file):
         common_hash = common_hash.strip()
     while True:
         if common_hash:
-            print (f"diff {src_file} => {dst_file}: common head "
-                   f"{100 * len(common_hash) / len(dst_hash)}%")
+            print (f"common head {100 * len(common_hash) / len(dst_hash)}%\r", end='')
             common_hash_dst = None
             common_hash_src = search_part_with_same_hash_head(
                 src_text, common_hash,
@@ -86,16 +75,9 @@ def optimize_head(src_file, dst_file):
                         len(dst_hash) - len(common_hash)
                     )
             if common_hash_dst and common_hash_src:
-                if len(common_hash_dst) < len(common_hash_src):
-                    dst_desc = open(dst_file, 'wb')
-                    with(dst_desc):
-                        dst_desc.write(
-                            (
-                                common_hash_src +
-                                dst_text[len(common_hash_dst):]
-                            ).encode("utf8")
-                        )
-                return
+                if len(common_hash_dst) != len(common_hash_src):
+                    return common_hash_src + dst_text[len(common_hash_dst):]
+                return dst_text
             # looks as too long hash
             found_something = False
             for i in range(1, len(common_hash)):
@@ -104,26 +86,15 @@ def optimize_head(src_file, dst_file):
                     found_something = True
                     break
             if not found_something:
-                print (f"diff {src_file} => {dst_file}: No common head")
-                return
-            print (f"diff {src_file} => {dst_file}: try shorter common "
-                   f"head {100 * len(common_hash) / len(dst_hash)}%")
+                print ("No common head\r", end='')
+                return dst_text
+            print (f"try shorter common head {100 * len(common_hash) / len(dst_hash)}%\r", end='')
         else:
-            print (f"diff {src_file} => {dst_file}: no common head")
-            return
+            print ("no common head\r", end='')
+            return dst_text
 
 
-def optimize_tail(src_file, dst_file):
-    src_desc = open(src_file, 'rb')
-    with src_desc:
-        src_text = utils_clean.cleanup(src_desc.read().decode("utf8"))
-    if not src_text:
-        return
-    dst_desc = open(dst_file, 'rb')
-    with dst_desc:
-        dst_text = utils_clean.cleanup(dst_desc.read().decode("utf8"))
-    if not dst_text:
-        return
+def optimize_tail(src_text, dst_text):
     src_hash = utils_clean.get_hash(src_text, True)
     dst_hash = utils_clean.get_hash(dst_text, True)
     common_hash = None
@@ -139,8 +110,7 @@ def optimize_tail(src_file, dst_file):
                 found_something = True
                 common_hash = common_hash[common_hash.find("\n"):].strip()
         if common_hash:
-            print (f"diff {src_file} => {dst_file}: common "
-                   f"tail {100 * len(common_hash) / len(dst_hash)}%")
+            print (f"common tail {100 * len(common_hash) / len(dst_hash)}%\r", end='')
             common_hash_dst = None
             common_hash_src = search_part_with_same_hash_tail(
                 src_text, common_hash,
@@ -155,29 +125,20 @@ def optimize_tail(src_file, dst_file):
                         len(dst_hash) - len(common_hash)
                     )
             if common_hash_dst and common_hash_src:
-                if len(common_hash_dst) < len(common_hash_src):
-                    dst_desc = open(dst_file, 'wb')
-                    with(dst_desc):
-                        dst_desc.write(
-                            (
-                                dst_text[:-len(common_hash_dst)] +
-                                common_hash_src
-                            ).encode("utf8")
-                        )
-                return
+                if len(common_hash_dst) != len(common_hash_src):
+                    return dst_text[:-len(common_hash_dst)] + common_hash_src
+                return dst_text
             if not found_something:
-                print (f"diff {src_file} => {dst_file}: No common tail")
-                return
+                print ("No common tail\r", end='')
+                return dst_text
             # looks as too long hash
-            print (f"diff {src_file} => {dst_file}: try shorter common "
-                   f"tail {100 * len(common_hash) / len(dst_hash)}%")
+            print (f"try shorter common tail {100 * len(common_hash) / len(dst_hash)}%\r", end='')
         else:
-            print (f"diff {src_file} => {dst_file}: no comomn tail")
-            return
+            print (f"no comomn tail\r", end='')
+            return dst_text
 
 
 def file_hash(name):
-    file_desc = open(name, 'rb')
-    with file_desc:
+    with open(name, 'rb') as file_desc:
         return utils_clean.get_hash(
             file_desc.read().decode("utf8"), True)

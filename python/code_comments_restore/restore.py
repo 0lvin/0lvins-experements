@@ -5,21 +5,17 @@ import utils_fuzzy_logic
 
 
 def process_copy(src_file, dst_file):
-    src_desc = open(src_file, 'rb')
-    with src_desc:
+    with open(src_file, 'rb') as src_desc:
         src_text = src_desc.read().decode("utf8")
     if not src_text:
         return
-    dst_desc = open(dst_file, 'rb')
-    with dst_desc:
+    with open(dst_file, 'rb') as dst_desc:
         dst_text = utils_clean.cleanup(dst_desc.read().decode("utf8"))
     if not dst_text:
         return
-    src_text = utils_clean.cleanup(src_text)
     dst_text = utils_clean.cleanup(dst_text)
     if len(dst_text) < len(src_text):
-        dst_desc = open(dst_file, 'wb')
-        with(dst_desc):
+        with open(dst_file, 'wb') as dst_desc:
             dst_desc.write(src_text.encode("utf8"))
         print (f"update done: {src_file} => {dst_file}")
     else:
@@ -33,13 +29,26 @@ def process_file(src_file, dst_file):
         if dst_file_hash == src_file_hash:
             statinfo_src = os.stat(src_file)
             statinfo_dst = os.stat(dst_file)
-            if statinfo_dst.st_size < statinfo_src.st_size:
+            if statinfo_dst.st_size != statinfo_src.st_size:
                 process_copy(src_file, dst_file)
             else:
                 print (f"same {src_file} => {dst_file}")
         else:
-            utils_fuzzy_logic.optimize_head(src_file, dst_file)
-            utils_fuzzy_logic.optimize_tail(src_file, dst_file)
+            with open(src_file, 'rb') as src_desc:
+                src_text = src_desc.read().decode("utf8")
+            if not src_text:
+                return
+            with open(dst_file, 'rb') as dst_desc:
+                dst_text = dst_desc.read().decode("utf8")
+            if not dst_text:
+                return
+            print (f"check head\r", end='')
+            dst_text = utils_fuzzy_logic.optimize_head(src_text, dst_text)
+            print (f"check tail\r", end='')
+            dst_text = utils_fuzzy_logic.optimize_tail(src_text, dst_text)
+            with open(dst_file, 'wb') as dst_desc:
+                dst_desc.write(dst_text.encode("utf8"))
+            print (f"different: {src_file} => {dst_file}")
     else:
         print (f"Look to {src_file} -> {dst_file}")
 
