@@ -175,7 +175,12 @@ def process(src_inode, dst_inode):
                 if filename.endswith('.c'):
                     dst_file = os.path.join(dirname, filename)
                     src_file = dst_file.replace(dst_inode, src_inode)
-                    recreate_file(src_file, dst_file, block_long_dumps, block_short_dumps)
+                    try:
+                        recreate_file(
+                            src_file, dst_file, block_long_dumps, block_short_dumps
+                        )
+                    except Exception as e:
+                        print(f"Process of {dst_file} from {src_file} failed with {e}")
 
 
 if __name__ == "__main__":
