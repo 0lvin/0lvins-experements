@@ -1,6 +1,4 @@
-# compress image before combine
-lz4 roc-rk3328-cc/arch/arm64/boot/Image --best -f
-
+# https://manpages.debian.org/unstable/depthcharge-tools/mkdepthcharge.1.en.html
 mkimage -D "-I dts -O dtb -p 2048" -f kernel.its /tmp/vmlinux.uimg
 
 dd if=/dev/zero of=/tmp/bootloader.bin bs=512 count=1
