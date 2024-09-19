@@ -1,20 +1,22 @@
 format_list = [
-   "4x4",
-   "5x4",
-   "5x5",
-   "6x5",
-   "6x6",
-   "8x5",
-   "8x6",
-   "8x8",
-   "10x5",
-   "10x6",
-   "10x8",
-   "10x10",
-   "12x10",
-   "12x12"]
+    "4x4",
+    "5x4",
+    "5x5",
+    "6x5",
+    "6x6",
+    "8x5",
+    "8x6",
+    "8x8",
+    "10x5",
+    "10x6",
+    "10x8",
+    "10x10",
+    "12x10",
+    "12x12",
+]
 
-print("""
+print(
+    """
 /**************************************************************************
  *
  * Copyright 2010 VMware, Inc.
@@ -52,10 +54,12 @@ print("""
 #ifdef __cplusplus
 extern "C" {
 #endif
-""")
+"""
+)
 
 for format_name in format_list:
-   print("""
+    print(
+        """
 void
 util_format_astc_{format_name}_srgb_unpack_rgba_8unorm(uint8_t *dst_row, unsigned dst_stride,
                                                const uint8_t *src_row, unsigned src_stride,
@@ -96,12 +100,17 @@ void
 util_format_astc_{format_name}_fetch_rgba_float(float *dst, const uint8_t *src,
                                              unsigned width, unsigned height);
 
-""".format(format_name=format_name))
+""".format(
+            format_name=format_name
+        )
+    )
 
-print ("""
+print(
+    """
 #ifdef __cplusplus
 }
 #endif
 
 #endif /* U_FORMAT_ASTC_H_ */
-""")
+"""
+)

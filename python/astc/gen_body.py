@@ -1,20 +1,22 @@
 format_list = [
-   (4, 4),
-   (5, 4),
-   (5, 5),
-   (6, 5),
-   (6, 6),
-   (8, 5),
-   (8, 6),
-   (8, 8),
-   (10, 5),
-   (10, 6),
-   (10, 8),
-   (10, 10),
-   (12, 10),
-   (12, 12)]
+    (4, 4),
+    (5, 4),
+    (5, 5),
+    (6, 5),
+    (6, 6),
+    (8, 5),
+    (8, 6),
+    (8, 8),
+    (10, 5),
+    (10, 6),
+    (10, 8),
+    (10, 10),
+    (12, 10),
+    (12, 12),
+]
 
-print("""
+print(
+    """
 /**************************************************************************
  *
  * Copyright (C) 1999-2007  Brian Paul   All Rights Reserved.
@@ -153,10 +155,12 @@ compress_rgb_float(int width, int height,
    }
 }
 
-""")
+"""
+)
 
-for (format_x, format_y) in format_list:
-   print("""
+for format_x, format_y in format_list:
+    print(
+        """
 void
 util_format_astc_{format_x}x{format_y}_unpack_rgba_8unorm(uint8_t *dst_row, unsigned dst_stride,
                                                const uint8_t *src_row, unsigned src_stride,
@@ -289,4 +293,7 @@ util_format_astc_{format_x}x{format_y}_srgb_fetch_rgba_float(float *dst, const u
                               dst, (width % {format_y}) + (height % {format_x}) * 4, {format_x}, {format_y}, true);
 }}
 
-""".format(format_x=format_x, format_y=format_y))
+""".format(
+            format_x=format_x, format_y=format_y
+        )
+    )

@@ -3,11 +3,10 @@ import re
 white_space = re.compile(r"(\t| )+\n")
 
 pattern = re.compile(
-    r'//.*?$|/\*.*?\*/|\'(?:\\.|[^\\\'])*\'|"(?:\\.|[^\\"])*"',
-    re.DOTALL | re.MULTILINE
+    r'//.*?$|/\*.*?\*/|\'(?:\\.|[^\\\'])*\'|"(?:\\.|[^\\"])*"', re.DOTALL | re.MULTILINE
 )
 
-pattern_white_space = re.compile(r'\s+')
+pattern_white_space = re.compile(r"\s+")
 
 
 def removeCCppComment(text):
@@ -16,8 +15,8 @@ def removeCCppComment(text):
         s = match.group(0)
         # Matched string is
         # //...EOL or /*...*/  ==> Blot out all non-newline chars
-        if s.startswith('/'):
-            return ' '
+        if s.startswith("/"):
+            return " "
         # Matched string is '...' or "..."  ==> Keep unchanged
         else:
             return s
@@ -28,7 +27,7 @@ def removeCCppComment(text):
 def get_hash(text, strip):
     cleaned_up_text = removeCCppComment(text)
     # drop whitespaces
-    cleaned_up_text = re.sub(pattern_white_space, '\n', cleaned_up_text)
+    cleaned_up_text = re.sub(pattern_white_space, "\n", cleaned_up_text)
     if strip:
         # for compare case
         return cleaned_up_text.strip()
@@ -41,11 +40,11 @@ def replace_space_at_start(text):
     splited = text.split("\n")
     for i in range(len(splited)):
         pos = 0
-        while pos < len(splited[i]) and splited[i][pos] == ' ':
+        while pos < len(splited[i]) and splited[i][pos] == " ":
             pos = pos + 1
         if pos > 0:
-            tabs = int(pos/8)
-            splited[i] = ("\t" * tabs) + splited[i][tabs * 8:]
+            tabs = int(pos / 8)
+            splited[i] = ("\t" * tabs) + splited[i][tabs * 8 :]
     return "\n".join(splited)
 
 
@@ -69,8 +68,8 @@ def select_open_close(buf):
         if buf[pos] in brakets:
             brakets[buf[pos]] += 1
             pos += 1
-        elif buf[pos] == "\"":
-            end_pos = buf.find("\"", pos + 1)
+        elif buf[pos] == '"':
+            end_pos = buf.find('"', pos + 1)
             if end_pos == -1:
                 return buf, ""
             else:
@@ -85,7 +84,7 @@ def select_open_close(buf):
         elif buf[pos] == ")":
             brakets["("] -= 1
             pos += 1
-        elif buf[pos:pos + 2] == "//":
+        elif buf[pos : pos + 2] == "//":
             end_pos = buf.find("\n", pos + 2)
             if end_pos == -1:
                 return buf, ""
@@ -97,7 +96,7 @@ def select_open_close(buf):
                 return buf, ""
             else:
                 pos = end_pos + 1
-        elif buf[pos:pos + 2] == "/*":
+        elif buf[pos : pos + 2] == "/*":
             end_pos = buf.find("*/", pos + 2)
             if end_pos == -1:
                 return buf, ""
