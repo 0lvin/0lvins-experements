@@ -203,7 +203,14 @@ for line in entities:
             sub_lines[26] = str(values["color"][2])
         result_entities.append("|".join(sub_lines))
 
-with open("entity.dat", "wb") as f:
-    f.write("\n".join(result_entities).encode("utf8"))
+# remove duplicates
+strings = []
+for line in result_entities:
+    if line.strip() not in strings or not line:
+        strings.append(line.strip())
 
+with open("entity.dat", "wb") as f:
+    f.write((("\n".join(strings)).strip() + "\n").encode("utf8"))
+
+# dump all parsed items
 print(json.dumps(classes, indent=2))
