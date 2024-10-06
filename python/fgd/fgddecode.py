@@ -1,3 +1,4 @@
+# Implementation of https://book.leveldesignbook.com/appendix/resources/formats/fgd
 import sys
 import json
 import copy
