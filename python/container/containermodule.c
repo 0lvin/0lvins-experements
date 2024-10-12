@@ -15,23 +15,32 @@ container_unshare(PyObject *self, PyObject *args)
 	if (res < 0) {
 		return PyErr_SetFromErrno(PyExc_OSError);
 	}
-	return Py_BuildValue("i", res);
+
+	return PyLong_FromLong(res);
 }
 
 static PyMethodDef ContainerMethods[] = {
 	{"unshare",  container_unshare, METH_VARARGS,
 		"Run unshare call in current process"},
-	{NULL, NULL, 0, NULL}        /* Sentinel */
+	{NULL, NULL, 0, NULL}  /* Sentinel */
+};
+
+static struct PyModuleDef containermodule = {
+	PyModuleDef_HEAD_INIT,
+	"container",
+	NULL,  // module documentation can be placed here
+	-1,
+	ContainerMethods
 };
 
 PyMODINIT_FUNC
-initcontainer(void)
+PyInit_container(void)
 {
 	PyObject *m;
 
-	m = Py_InitModule("container", ContainerMethods);
+	m = PyModule_Create(&containermodule);
 	if (m == NULL) {
-		return;
+		return NULL;
 	}
 
 	PyModule_AddIntConstant(m, "CLONE_FILES", CLONE_FILES);
@@ -44,4 +53,6 @@ initcontainer(void)
 	PyModule_AddIntConstant(m, "CLONE_NEWUSER", CLONE_NEWUSER);
 	PyModule_AddIntConstant(m, "CLONE_NEWUTS", CLONE_NEWUTS);
 	PyModule_AddIntConstant(m, "CLONE_SYSVSEM", CLONE_SYSVSEM);
+
+	return m;
 }
