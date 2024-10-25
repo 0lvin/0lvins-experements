@@ -205,8 +205,18 @@ for line in entities:
 
 # remove duplicates
 strings = []
+keys = []
 for line in result_entities:
     if line.strip() not in strings or not line:
+        # has key
+        if "|" in line:
+            key = line.strip().split("|")[0]
+            # already has such key
+            if key in keys:
+                continue
+            # save to processed key
+            keys.append(key)
+        # save to resulted file
         strings.append(line.strip())
 
 with open("entity.dat", "wb") as f:
