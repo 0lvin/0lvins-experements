@@ -210,7 +210,7 @@ for line in result_entities:
     if line.strip() not in strings or not line:
         # has key
         if "|" in line:
-            key = line.strip().split("|")[0]
+            key = line.strip().split("|")[0].lower()
             # already has such key
             if key in keys:
                 continue
