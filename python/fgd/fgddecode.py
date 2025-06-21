@@ -119,6 +119,11 @@ def parse_section(entity_type, content, structure):
                         if model_path.startswith(":"):
                             model_path = model_path[1:]
                         values["model_path"] = model_path
+                elif value and value[0] == '"':
+                    model_path = value.replace('"', '')
+                    if model_path.startswith(":"):
+                        model_path = model_path[1:]
+                    values["model_path"] = model_path
                 values[token] = value
             else:
                 if token not in values:
