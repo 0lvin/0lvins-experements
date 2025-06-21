@@ -4,6 +4,9 @@ import json
 import copy
 
 
+ENTITY_EXAMPLE = "||1.0|1.0|1.0|general|0|0|0|0|0|0|shadow|0|0.0|0.0|0|0|0|0:0|0|0|none||.5|.5|.5"
+
+
 def get_next_token(content):
     content = content.strip()
     pos = 1
@@ -166,6 +169,27 @@ def parse_fgd(filename):
             classes[value.get("name")] = new_value
     return classes
 
+def convert_classes_to_entity(classes, sub_lines):
+    if len(sub_lines) < 27:
+        sub_lines += [""] * (27 - len(sub_lines))
+    values = classes[sub_lines[0]]
+    if values.get("model_path"):
+        sub_lines[1] = values["model_path"]
+    if values.get("description"):
+        sub_lines[23] = values["description"]
+    if values.get("size"):
+        sub_lines[6] = str(values["size"][0][0])
+        sub_lines[7] = str(values["size"][0][1])
+        sub_lines[8] = str(values["size"][0][2])
+        sub_lines[9] = str(values["size"][1][0])
+        sub_lines[10] = str(values["size"][1][1])
+        sub_lines[11] = str(values["size"][1][2])
+    if values.get("color"):
+        sub_lines[24] = str(values["color"][0])
+        sub_lines[25] = str(values["color"][1])
+        sub_lines[26] = str(values["color"][2])
+    return "|".join(sub_lines)
+
 
 if len(sys.argv) < 2:
     print("fgd is not provided")
@@ -179,6 +203,7 @@ with open("entity.dat", "rb") as f:
     # remove \r
     entities = entities.replace("\r", "\n").strip().split("\n")
 
+processed_entities = []
 result_entities = []
 for line in entities:
     sub_lines = line.split("|")
@@ -187,23 +212,19 @@ for line in entities:
     elif sub_lines[0] not in classes:
         result_entities.append(line)
     else:
-        values = classes[sub_lines[0]]
-        if values.get("model_path"):
-            sub_lines[1] = values["model_path"]
-        if values.get("description"):
-            sub_lines[23] = values["description"]
-        if values.get("size"):
-            sub_lines[6] = str(values["size"][0][0])
-            sub_lines[7] = str(values["size"][0][1])
-            sub_lines[8] = str(values["size"][0][2])
-            sub_lines[9] = str(values["size"][1][0])
-            sub_lines[10] = str(values["size"][1][1])
-            sub_lines[11] = str(values["size"][1][2])
-        if values.get("color"):
-            sub_lines[24] = str(values["color"][0])
-            sub_lines[25] = str(values["color"][1])
-            sub_lines[26] = str(values["color"][2])
-        result_entities.append("|".join(sub_lines))
+        processed_entities.append(sub_lines[0])
+        result_entities.append(convert_classes_to_entity(classes, sub_lines))
+
+
+non_processed = list(set(classes.keys()) - set(processed_entities))
+if non_processed:
+    result_entities.append("")
+    result_entities.append("// " + sys.argv[1].replace(".fgd", ""))
+    for name in sorted(non_processed):
+        if classes[name].get("description"):
+            new_entity = ENTITY_EXAMPLE.split("|")
+            new_entity[0] = name
+            result_entities.append(convert_classes_to_entity(classes, new_entity))
 
 # remove duplicates
 strings = []
