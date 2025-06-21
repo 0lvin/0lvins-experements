@@ -9,9 +9,11 @@ vbutil_kernel --pack /tmp/vmlinux.kpart --version 1 --vmlinuz /tmp/vmlinux.uimg 
 
 # sudo dd if=/dev/mmcblk0p1 of=`uname -r`.img
 sudo dd bs=4096 if=/dev/disk/by-partuuid/2d0afc5d-f4b8-df43-b45a-18b34d662753 of=`uname -r`.img
+sudo cp /proc/config.gz `uname -r`.config.gz
+lsmod | sort > `uname -r`.lsmod.txt
 
 # sudo dd if=/dev/zero of=/dev/mmcblk0p1
-sudo dd bs=4096 if=/dev/zero of=/dev/disk/by-partuuid/2d0afc5d-f4b8-df43-b45a-18b34d662753
+sudo dd count=4096 bs=4096 if=/dev/zero of=/dev/disk/by-partuuid/2d0afc5d-f4b8-df43-b45a-18b34d662753
 
 # sudo dd if=/tmp/vmlinux.kpart of=/dev/mmcblk0p1
 sudo dd bs=4096 if=/tmp/vmlinux.kpart of=/dev/disk/by-partuuid/2d0afc5d-f4b8-df43-b45a-18b34d662753
