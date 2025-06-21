@@ -100,6 +100,8 @@ def parse_section(entity_type, content, structure):
                 values[token] = [
                     [float(y) for y in x.strip().split(" ")] for x in value.split(",")
                 ]
+                if len(values[token]) == 1:
+                    values[token].insert(0, [.0, .0, .0])
             elif token == "base":
                 values[token] = [x.strip() for x in value.split(",")]
             elif token == "color":
