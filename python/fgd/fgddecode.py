@@ -94,12 +94,12 @@ def parse_section(entity_type, content, structure):
             return content
         elif content[0] == "(":
             content, value = parse_value(content)
-            if token == "studio":
+            if token == "studio" and value:
                 if value[0] == '"' and value[-1] == '"':
                     value = value[1:-1]
                 if "\n" not in value:
                     values["model_path"] = value.replace("\\", "/")
-            elif token == "size":
+            elif token == "size" and value:
                 values[token] = [
                     [float(y) for y in x.strip().split(" ")] for x in value.split(",")
                 ]
